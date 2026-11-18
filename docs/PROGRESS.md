@@ -4,7 +4,7 @@ Last updated: 2026-11-18. Correction `cc73c69` is CI-green and device-retested:
 preview/session opening works, with partial RAW/Video evidence. Genuine
 maximum-resolution still discovery and smooth video zoom are implemented and
 CI build-verified but device-unverified. A focused 1080p60-only Video policy is
-locally build-verified; publication and physical cadence evidence are pending.
+also CI build-verified; physical cadence evidence is pending.
 
 ## Current summary
 
@@ -17,18 +17,18 @@ locally build-verified; publication and physical cadence evidence are pending.
 | Device baseline session | Device-verified (partial) | Permission/gate, preview, capture+storage, torch, zoom, 4-lens switching, lifecycle, settings persistence passed; Logs/share/full-caps/quality-isolation deferred (TESTING) |
 | Requirements/design | Documented | REQUIREMENTS, DECISIONS and subsystem docs |
 | Project-local Markdown | Created | Root AGENTS/README and 18 documents under docs |
-| Documentation consistency | Host-verified / reviewed | Current check: 21 Markdown files, 60 local links, 0 broken targets, 99-line handoff; history in TESTING |
+| Documentation consistency | Host-verified / reviewed | Current check: 21 Markdown files, 60 local links, 0 broken targets, 100-line handoff; history in TESTING |
 | Android scaffold | Build-verified | Six modules compiled in run 44235722163 at 9174a63; API35 minimum/API36 target |
 | Photo/settings/logger | Device-verified for Photo path | Real Camera2/JPEG/MediaStore verified on-device with saved media; log screen/share intent and quality isolation still to exercise |
 | Runtime findings | P-016 device-resolved for reproduced startup path | Correction log shows valid attachment/open/configure across Photo/Video/lens/lifecycle; P-011/P-012 checks remain |
 | Recording/RAW | Implemented / partial device evidence | JPEG+DNG save logs on IDs 0/1; user reports FHD/30 recording works. Saved DNG/MP4 inspection remains |
-| 1080p60-only Video | Implemented / local build-verified | D-021 capability gates regular or constrained sessions; 15 model + 6 app tests pass. CI/device cadence pending |
+| 1080p60-only Video | Implemented / CI build-verified | `c78ae3a`, run 44303969928; capability-gated regular or constrained sessions. Device cadence pending |
 | Maximum-resolution/smooth zoom | Implemented / CI build-verified | `d0ccb40`, run 44298287574; no installed build has queried maximum-resolution maps or assessed zoom feel |
 | GPU color/RAW-frame/stereo monitoring | Planned | D-020 architecture only; no controls exposed |
 | Extensions/manual | Not implemented | Disabled or diagnostics-only, no fake pipeline |
-| GitHub Actions | Maximum-resolution tranche passed | `d0ccb40`, run 44298287574 success; 14 model + 6 app tests, lint and APK upload passed |
-| App builds/tests/device validation | Current tranche CI build-verified | CI: 20 tests, no failures/ignored; lint 0 errors/17 warnings. No D-019 phone test |
-| APK/delivery | D-019 CI artifact verified; correction remains installed | New APK 62,268,381 bytes, SHA256 `69A5B0F6…317910`, v2/package/SDK verified; not installed by instruction |
+| GitHub Actions | 1080p60 tranche passed | `c78ae3a`, run 44303969928 success; 15 model + 6 app tests, lint and both artifact uploads passed |
+| App builds/tests/device validation | Current tranche CI build-verified | CI: 21 tests, no failures/ignored; lint 0 errors/17 warnings. No D-021 phone test |
+| APK/delivery | D-021 CI artifact verified; correction remains installed | New APK 62,284,765 bytes, SHA256 `A8EC60F2…4FF0DC`, v2/package/SDK verified; not installed by instruction |
 
 ## Completed record
 
@@ -67,8 +67,7 @@ locally build-verified; publication and physical cadence evidence are pending.
 
 ## Next tasks
 
-1. Commit/push D-021 and wait for all GitHub Actions checks to pass.
-2. When device testing is separately authorized, inspect the exact 1080p60
+1. When device testing is separately authorized, inspect the exact 1080p60
    capability/session and saved MP4 timestamps before calling it achieved on-device.
 
 ### 2026-11-18: Implementation bootstrap (not yet compiled)
@@ -287,6 +286,11 @@ locally build-verified; publication and physical cadence evidence are pending.
 - Final local full gate passed in 1m12s: 15 model + 6 app tests, no failures/ignored;
   lint 0 errors/16 warnings; APK assembled and v2/package/SDK verified. No phone
   access was used, so actual capability, session acceptance and cadence remain unknown.
+- Committed/pushed as `c78ae3a`. CI run 44303969928 passed in 2m00s; 15 model +
+  6 app tests had no failures/ignored, lint had 0 errors/17 warnings, and both
+  artifacts uploaded. Downloaded APK is 62,284,765 bytes, SHA256
+  `A8EC60F269D357D1455301154E21A2539FE434A0FE4593871AF662EDC34FF0DC`;
+  v2 signature, package, minSdk35 and targetSdk36 verified. It was not installed.
 
 ## Active blockers
 

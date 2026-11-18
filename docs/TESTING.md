@@ -6,7 +6,7 @@ on IDs 0/1; the user reports FHD/30 recording works and OIS does not. The curren
 maximum-resolution/smooth-zoom source is CI build-verified only; no phone access is
 authorized for this implementation phase. Commit `d0ccb40` passed CI run
 44298287574; its artifact is verified but not installed. The focused D-021
-1080p60-only source passed the local full gate; publication/device evidence is pending.
+1080p60-only source passed local and CI gates; device evidence is pending.
 
 ## Evidence rules
 
@@ -182,6 +182,8 @@ work. DOC-04: platform/device constraints agree across canonical files.
 | 2026-11-18 | Maximum-resolution/smooth-zoom publication CI | Passed, CI/host-observed | Commit `d0ccb4003d45836f45df8ceeaeb7428becdf7145`, [run 44298287574](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44298287574), completed in 2m4s. Reports: 14 model + 6 app tests, 0 failures/ignored; lint 0 errors/17 warnings. APK and report uploads passed; Node/action/runtime and wrapper-executable annotations remain P-010 maintenance, not failures |
 | 2026-11-18 | Focused 1080p60 policy and local full gate | Passed, local build-verified | `:core:model:test testDebugUnitTest :app:lintDebug :app:assembleDebug` BUILD SUCCESSFUL in 1m12s. Reports: 15 model + 6 app tests, 0 failures/ignored; lint 0 errors/16 warnings. APK 62,568,739 bytes, SHA256 `244A1F0C4A2BA29E590BFC535DC92C6A6F9F195AB93B72279C2CD982C517E533`; v2 signature, package `dev.camera3.app`, minSdk35/targetSdk36 verified. Synthetic checks are not phone/session/cadence evidence |
 | 2026-11-18 | Focused 1080p60 documentation/diff check | Passed, host-observed | 21 Markdown files, 60 local links, 0 broken targets, 99-line HANDOFF; `git diff --check` clean before publication |
+| 2026-11-18 | Focused 1080p60 publication CI | Passed, CI/host-observed | Commit `c78ae3a21e65bec93f4a1be9fbb5efee279390c9`, [run 44303969928](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44303969928), completed in 2m00s. Reports: 15 model + 6 app tests, 0 failures/ignored; lint 0 errors/17 warnings; APK and report uploads passed. Downloaded APK: 62,284,765 bytes, SHA256 `A8EC60F269D357D1455301154E21A2539FE434A0FE4593871AF662EDC34FF0DC`; v2 signature, Camera3 / `dev.camera3.app` / minSdk35 / targetSdk36 verified. Not installed; no physical cadence claim |
+| 2026-11-18 | Focused 1080p60 post-CI documentation check | Passed, host-observed | 21 Markdown files, 60 local links, 0 broken targets, 100-line HANDOFF; `git diff --check` clean before docs checkpoint |
 
 Historical CI test reports cover only `:core:model:test` (nine initially,
 12 in RAW+Video CI). P-016 added five CI-green app state tests; the current local
@@ -200,6 +202,19 @@ All builds are runner-debug-signed, not production release signing, and none
 implies device verification beyond what the execution record states. Fresh CI
 keys can require uninstall/reinstall between builds; preserve needed app data
 first. All generated downloads are ignored by Git.
+
+### Focused 1080p60 build (verified; not installed)
+
+- Run: [44303969928](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44303969928),
+  source commit `c78ae3a21e65bec93f4a1be9fbb5efee279390c9`; workflow success.
+- Local artifact: `app/build/ci/44303969928/camera3-debug-apk/app-debug.apk`;
+  62,284,765 bytes, SHA256
+  `A8EC60F269D357D1455301154E21A2539FE434A0FE4593871AF662EDC34FF0DC`.
+- `apksigner` verified v2 signing. `aapt2` verified Camera3 /
+  `dev.camera3.app` / `0.1.0-dev` / minSdk35 / targetSdk36.
+- Reports show 15 model + 6 app tests, no failures/ignored; lint 0 errors/17 warnings.
+- Not installed or device-tested by instruction. This artifact does not prove
+  that the phone exposes/accepts the required configuration or records 60 fps.
 
 ### Maximum-resolution/smooth-zoom build (verified; not installed)
 

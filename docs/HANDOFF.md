@@ -1,9 +1,8 @@
 # Handoff: read first when resuming
 
-Last updated: 2026-11-18. Maximum-resolution still discovery plus smooth Video
-zoom are published and CI-green at `d0ccb40`; device behavior is unverified.
-P-016 remains resolved for its reproduced path. No phone access is authorized
-for the current implementation phase.
+Last updated: 2026-11-18. Focused 1080p60-only Video source is published and
+CI-green at `c78ae3a`; device behavior is unverified. P-016 remains resolved for
+its reproduced path. No phone access is authorized for this implementation phase.
 
 ## Current state
 
@@ -37,7 +36,10 @@ for the current implementation phase.
   It requires camera timing/range, writable FPS request, AVC encoder and preview
   evidence; supports regular or explicit constrained-high-speed sessions; and has
   no fallback resolution/FPS. Local full gate: 15 model + 6 app tests, lint
-  0 errors/16 warnings, APK identity/signature passed. CI/device evidence pending.
+  0 errors/16 warnings, APK identity/signature passed. CI run 44303969928 passed
+  in 2m00s with 15+6 tests, no failures/ignored and lint 0 errors/17 warnings.
+  Downloaded APK: 62,284,765 bytes, SHA256 `A8EC60F2…4FF0DC`, v2/package/SDK
+  verified. Device evidence remains pending.
 - Device identity: Android 16 / API 36 with spoofed Samsung props (a35x board,
   SM-S711B model string, mixed fingerprint) consistent with the user's Magisk/
   modified-library report. Do not copy the device serial into docs/exports.
@@ -94,6 +96,5 @@ for the current implementation phase.
 
 ## Exact next action
 
-1. Commit/push only the D-021 1080p60 tranche and wait for all CI checks to pass.
-2. Do not claim physical 60 fps until an authorized phone run proves the session
+1. Do not claim physical 60 fps until an authorized phone run proves the session
    and saved MP4 cadence from timestamps.

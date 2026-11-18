@@ -13,7 +13,7 @@ SurfaceView preview, JPEG capture to MediaStore, camera switching, supported
 torch/zoom, RAW/DNG capture, first-cut MediaRecorder video, persisted settings,
 diagnostics and log export/share. Genuine maximum-resolution still discovery and
 smooth Video zoom are CI build-verified but not device-verified. A focused
-1080p60-only Video policy is locally build-verified and awaits CI/device evidence. Advanced
+1080p60-only Video policy is also CI build-verified and awaits device evidence. Advanced
 modes remain absent or disabled rather than simulated.
 
 ## Build an APK with GitHub Actions
@@ -25,10 +25,10 @@ then uploads **camera3-debug-apk** and **verification-reports** artifacts.
 Download the APK artifact from a successful Actions run and unzip it to install.
 This is a development/debug APK, not a signed production release.
 
-Latest published source: [Actions run 44298287574](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44298287574),
-commit `d0ccb40`. It passed 14 model + 6 app tests and lint; the downloaded APK's
-signature, package and SDK identity were checked. Maximum-resolution/smooth-zoom
-device behavior remains unverified; details are in [testing evidence](docs/TESTING.md).
+Latest implementation: [Actions run 44303969928](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44303969928),
+commit `c78ae3a`. It passed 15 model + 6 app tests and lint; the downloaded APK's
+signature, package and SDK identity were checked. 1080p60 device behavior remains
+unverified; details are in [testing evidence](docs/TESTING.md).
 
 ## Product direction
 
@@ -64,8 +64,8 @@ context window or automatically prove implementation status.
 
 ## Next implementation milestone
 
-Publish the focused 1080p60-only Video tranche and pass CI. Physical-device
-cadence/file verification remains separate and requires later authorization.
+Physical-device 1080p60 session/cadence/file verification remains separate and
+requires later authorization.
 
 Development identity: Camera3 / `dev.camera3.app` / `0.1.0-dev`. Final branding and
 release signing are still open. Versions are pinned in `gradle/libs.versions.toml`.

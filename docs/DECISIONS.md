@@ -367,8 +367,8 @@ the older proposals below are retained as design history.
 
 ## D-021: Capability-gated 1920×1080 at fixed 60 fps only
 
-- **Status:** implemented and locally build-verified, 2026-11-18; CI and device
-  output verification pending.
+- **Status:** implemented and CI build-verified at `c78ae3a`, run 44303969928,
+  2026-11-18; device output verification pending.
 - **Scope:** the user explicitly limited this tranche to 1080p60. Video now has
   no 30 fps or alternate-resolution fallback.
 - **Availability:** require a real 1920×1080 MediaRecorder output, writable
@@ -389,7 +389,8 @@ the older proposals below are retained as design history.
   from the nominal MP4 header.
 - **Verification:** final full gate passed locally in 1m12s: 15 model + 6 app
   tests, lint 0 errors/16 warnings, debug APK assembled and identity/signature
-  checks passed. A saved
+  checks passed. CI repeated 15 model + 6 app tests with no failures/ignored and
+  lint 0 errors/17 warnings; its APK identity/signature checks passed. A saved
   MP4 still needs timestamp/cadence inspection on the physical phone.
 - **Supersedes:** D-017's 30 fps selection policy, while retaining its recorder,
   storage, orientation, audio and cleanup ownership.

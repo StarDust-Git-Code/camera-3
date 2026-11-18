@@ -104,8 +104,9 @@ repeated stop and cleanup were not independently inspected; boxes stay open.
 Focused D-021 update: source now permits only 1920×1080 at fixed 60 fps after
 camera timing/range, writable request, AVC encoder and preview validation. It can
 use a regular session or an explicitly advertised constrained high-speed session
-with generated request lists. Fifteen model + six app tests and the local full
-gate pass; CI and physical MP4 cadence evidence are pending, so M4/M5 boxes stay open.
+with generated request lists. Fifteen model + six app tests, lint and APK passed
+locally and in CI run 44303969928. Physical MP4 cadence evidence remains pending,
+so M4/M5 boxes stay open.
 
 ## M5: Pro Video, HDR and high FPS
 
