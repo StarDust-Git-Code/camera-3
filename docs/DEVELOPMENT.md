@@ -73,8 +73,8 @@ The wrapper now exists. Run from the workspace or CI:
 .\gradlew.bat connectedDebugAndroidTest
 ```
 
-The workflow has passed repeatedly, most recently for published correction
-`cc73c69` in run 44259956383. It uses Bash/Ubuntu to run
+The workflow has passed repeatedly, most recently for published source `d0ccb40`
+in run 44298287574. It uses Bash/Ubuntu to run
 `:core:model:test testDebugUnitTest :app:lintDebug :app:assembleDebug` and uploads
 `camera3-debug-apk` plus `verification-reports`. Local SDK location may come from
 `ANDROID_HOME`/`ANDROID_SDK_ROOT` (both re-verified on this host) or ignored

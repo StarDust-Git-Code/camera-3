@@ -24,11 +24,10 @@ then uploads **camera3-debug-apk** and **verification-reports** artifacts.
 Download the APK artifact from a successful Actions run and unzip it to install.
 This is a development/debug APK, not a signed production release.
 
-Latest published correction: [Actions run 44259956383](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44259956383),
-commit `cc73c69`. Its APK signature/package were checked and the installed build
-restored preview/session opening. The current maximum-resolution/smooth-zoom
-tranche passed 14 model + 6 app tests and lint locally; publication evidence is
-tracked in [testing evidence](docs/TESTING.md).
+Latest published source: [Actions run 44298287574](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44298287574),
+commit `d0ccb40`. It passed 14 model + 6 app tests and lint; the downloaded APK's
+signature, package and SDK identity were checked. Maximum-resolution/smooth-zoom
+device behavior remains unverified; details are in [testing evidence](docs/TESTING.md).
 
 ## Product direction
 
@@ -64,8 +63,7 @@ context window or automatically prove implementation status.
 
 ## Next implementation milestone
 
-Publish and verify the maximum-resolution/smooth-zoom tranche, then begin the
-separate Camera2→GPU→MediaCodec/MediaMuxer and AudioRecord/AudioTrack architecture
+Begin the separate Camera2→GPU→MediaCodec/MediaMuxer and AudioRecord/AudioTrack architecture
 without exposing unfinished controls. When phone testing is authorized again,
 query maximum-resolution maps and saved dimensions before claiming 50 MP.
 

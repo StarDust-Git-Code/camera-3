@@ -25,6 +25,8 @@ current lifecycle correctness still needs stress tests on a physical device.
 
 ### Current maximum-resolution and zoom tranche
 
+- Published at `d0ccb40`; CI run 44298287574 passed. This is build evidence, not
+  proof of the phone's maximum-resolution maps, session acceptance or zoom feel.
 - Discovery reads the separate maximum-resolution stream map. Policy enables the
   mode only when `android.sensor.pixelMode` is writable and a real maximum-resolution
   JPEG exists; RAW additionally needs a compatible maximum-resolution RAW_SENSOR.

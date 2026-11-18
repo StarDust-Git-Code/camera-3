@@ -3,7 +3,7 @@
 Last updated: 2026-11-18. Correction `cc73c69` is CI-green and device-retested:
 preview/session opening works, with partial RAW/Video evidence. Genuine
 maximum-resolution still discovery and smooth video zoom are implemented and
-locally tested but uncommitted/device-unverified. Advanced GPU/audio work is planned.
+CI build-verified but device-unverified. Advanced GPU/audio work is planned.
 
 ## Current summary
 
@@ -21,12 +21,12 @@ locally tested but uncommitted/device-unverified. Advanced GPU/audio work is pla
 | Photo/settings/logger | Device-verified for Photo path | Real Camera2/JPEG/MediaStore verified on-device with saved media; log screen/share intent and quality isolation still to exercise |
 | Runtime findings | P-016 device-resolved for reproduced startup path | Correction log shows valid attachment/open/configure across Photo/Video/lens/lifecycle; P-011/P-012 checks remain |
 | Recording/RAW | Implemented / partial device evidence | JPEG+DNG save logs on IDs 0/1; user reports FHD/30 recording works. Saved DNG/MP4 inspection remains |
-| Maximum-resolution/smooth zoom | Implemented / locally build-verified | 14 model + 6 app tests in latest targeted run; no installed build has queried maximum-resolution maps or assessed zoom feel |
+| Maximum-resolution/smooth zoom | Implemented / CI build-verified | `d0ccb40`, run 44298287574; no installed build has queried maximum-resolution maps or assessed zoom feel |
 | GPU color/RAW-frame/stereo monitoring | Planned | D-020 architecture only; no controls exposed |
 | Extensions/manual | Not implemented | Disabled or diagnostics-only, no fake pipeline |
-| GitHub Actions | P-016 correction passed | `cc73c69`, run 44259956383 success; latest high-resolution tranche not pushed yet |
-| App builds/tests/device validation | Current tranche locally build-verified | Final full gate: 14 model + 6 app tests, no failures; lint 0 errors/16 warnings; APK assembled and inspected |
-| APK/delivery | Correction debug artifact verified/installed | 62,251,997 bytes, SHA256 `33430B…F1E`, v2 signature/package verified; exact evidence in TESTING |
+| GitHub Actions | Maximum-resolution tranche passed | `d0ccb40`, run 44298287574 success; 14 model + 6 app tests, lint and APK upload passed |
+| App builds/tests/device validation | Current tranche CI build-verified | CI: 20 tests, no failures/ignored; lint 0 errors/17 warnings. No D-019 phone test |
+| APK/delivery | D-019 CI artifact verified; correction remains installed | New APK 62,268,381 bytes, SHA256 `69A5B0F6…317910`, v2/package/SDK verified; not installed by instruction |
 
 ## Completed record
 
@@ -65,12 +65,9 @@ locally tested but uncommitted/device-unverified. Advanced GPU/audio work is pla
 
 ## Next tasks
 
-1. Review, commit and push the locally verified maximum-resolution/smooth-zoom
-   tranche, then verify its CI artifacts; no phone access is
-   authorized for this phase.
-2. Begin D-020 GPU/MediaCodec/AudioRecord architecture without exposing
+1. Begin D-020 GPU/MediaCodec/AudioRecord architecture without exposing
    unfinished LUT/Log/HDR/RAW-frame/stereo-monitor controls.
-3. When device testing resumes, query maximum-resolution maps first, verify
+2. When device testing resumes, query maximum-resolution maps first, verify
    actual saved dimensions, then test zoom feel, RAW throughput and USB routing.
 
 ### 2026-11-18: Implementation bootstrap (not yet compiled)
@@ -270,6 +267,11 @@ locally tested but uncommitted/device-unverified. Advanced GPU/audio work is pla
   configuration-identity coverage and atomic standard-mode fallback, the final
   full gate passed in 36s: 14 model + 6 app tests, no failures/errors/skips;
   lint 0 errors/16 warnings; APK assembled, v2 signature/package checked.
+- Committed/pushed as `d0ccb40`. CI run 44298287574 passed in 2m4s; reports show
+  14 model + 6 app tests, 0 failures/ignored, and lint 0 errors/17 warnings.
+  Downloaded APK is 62,268,381 bytes, SHA256 `69A5B0F6…317910`; v2 signature,
+  package `dev.camera3.app`, minSdk35 and targetSdk36 were verified. It was not
+  installed because phone access is not authorized for this phase.
 
 ## Active blockers
 

@@ -1,7 +1,7 @@
 # UI/UX direction
 
 Last updated: 2026-11-18. Native Compose camera/settings/diagnostics/log screens
-are build-verified; baseline camera UI has partial device evidence. The attached
+are CI build-verified; baseline camera UI has partial device evidence. The attached
 reference still has no local asset or pixel-level comparison artifact.
 
 ## Implemented reference adaptation

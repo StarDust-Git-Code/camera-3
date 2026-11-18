@@ -2,7 +2,8 @@
 
 Last updated: 2026-11-18. Baseline, P-016 correction and partial RAW/Video
 device probes completed; maximum-resolution discovery is implemented but has
-not run on the phone. Evidence and limitations are in TESTING.
+passed CI at `d0ccb40` but has not run on the phone. Evidence and limitations are
+in TESTING.
 
 ## Implemented baseline discovery / policy
 

@@ -2,7 +2,7 @@
 
 Last updated: 2026-11-18. Baseline Photo and P-016 correction have device
 evidence; RAW/Video evidence is partial. Maximum-resolution/smooth-zoom source is
-locally build-verified only. Checkboxes represent exit criteria, not optimism.
+CI build-verified only. Checkboxes represent exit criteria, not optimism.
 
 ## M0: Inspect and establish continuity
 
@@ -76,7 +76,7 @@ The files were not pulled/opened, so validity, metadata and rotation remain open
 
 Maximum-resolution still status: separate map/key discovery, pixel-mode-aware
 policy/session/request handling, persisted HI-RES gating and actual-MP labeling
-are locally build-verified (D-019). No installed build has queried the maps;
+are CI build-verified at `d0ccb40` (D-019). No installed build has queried the maps;
 availability, actual 50 MP output and maximum-resolution RAW remain unknown.
 
 ## M4: Robust standard Video

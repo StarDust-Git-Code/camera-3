@@ -311,8 +311,8 @@ the older proposals below are retained as design history.
 
 ## D-019: Public maximum-resolution stills and perceptual video zoom
 
-- **Status:** implemented and locally build-verified, 2026-11-18; no device test
-  authorized for this tranche.
+- **Status:** implemented and CI build-verified at `d0ccb40`, run 44298287574,
+  2026-11-18; no device test authorized for this tranche.
 - **Problem:** the user requested genuine 50 MP JPEG/RAW where available and
   smoother video zoom. The installed build only queried the default stream map,
   where ID 0 produced 4080×3060 JPEG/RAW; those outputs cannot be relabeled 50 MP.
@@ -334,10 +334,11 @@ the older proposals below are retained as design history.
   timing in logarithmic ratio space at approximately 30 Hz; a new target cancels
   the old ramp. Photo retains direct zoom response. Intermediate steps do not
   produce INFO-log spam.
-- **Verification:** final local full gate passed: 14 model + 6 app tests, no
-  failures/errors/skips; lint 0 errors/16 warnings; debug APK assembled and v2
-  signature/package checked. Actual maximum maps/session acceptance/file
-  dimensions and perceived zoom smoothness remain device-unverified.
+- **Verification:** final local full gate passed with 14 model + 6 app tests and
+  lint 0 errors/16 warnings. CI run 44298287574 passed with the same 20 tests,
+  0 failures/ignored, and lint 0 errors/17 warnings; its APK was v2/package/SDK
+  checked. Actual maximum maps/session acceptance/file dimensions and perceived
+  zoom smoothness remain device-unverified.
 
 ## D-020: Advanced GPU/codec and routed-audio pipeline
 

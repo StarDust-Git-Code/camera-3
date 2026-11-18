@@ -1,7 +1,7 @@
 # Settings inventory and behavior
 
 Last updated: 2026-11-18. Initial settings exist; the comprehensive inventory below
-is still mostly planned. High-resolution preference is build-verified, not device-verified.
+is still mostly planned. High-resolution preference is CI build-verified, not device-verified.
 
 ## Implemented subset
 

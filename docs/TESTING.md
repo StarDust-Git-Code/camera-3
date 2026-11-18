@@ -3,8 +3,9 @@
 Last updated: 2026-11-18. P-016 correction `cc73c69` is CI-green and its verified
 APK restored preview/session opening on-device. Logs show JPEG+DNG save completion
 on IDs 0/1; the user reports FHD/30 recording works and OIS does not. The current
-maximum-resolution/smooth-zoom source is locally tested only; no phone access is
-authorized for this implementation phase.
+maximum-resolution/smooth-zoom source is CI build-verified only; no phone access is
+authorized for this implementation phase. Commit `d0ccb40` passed CI run
+44298287574; its artifact is verified but not installed.
 
 ## Evidence rules
 
@@ -177,6 +178,7 @@ work. DOC-04: platform/device constraints agree across canonical files.
 | 2026-11-18 | Maximum-resolution/smooth-zoom targeted tests | Passed, local build-verified | 14 model + 6 app state tests passed after added policy/configuration-identity coverage; camera/app Kotlin compilation passed. Synthetic tests are not hardware/map/session/file or perceptual zoom evidence |
 | 2026-11-18 | Maximum-resolution/smooth-zoom final local gate | Passed, local build-verified | Full command `:core:model:test testDebugUnitTest :app:lintDebug :app:assembleDebug` BUILD SUCCESSFUL in 36s. XML: 14 model + 6 app tests, 0 failures/errors/skips; lint 0 errors/16 warnings. Local APK 62,568,619 bytes, SHA256 `5E01DBFA7AFFBE77D3B3D89C4FAAB0948BB4B6ED173768FCF98637F362942D13`; v2 signature and package identity checked. No phone test |
 | 2026-11-18 | Maximum-resolution tranche documentation/diff check | Passed, host-observed | 21 Markdown files, 59 local links / 0 broken targets, 93-line HANDOFF; `git diff --check` clean before publication review |
+| 2026-11-18 | Maximum-resolution/smooth-zoom publication CI | Passed, CI/host-observed | Commit `d0ccb4003d45836f45df8ceeaeb7428becdf7145`, [run 44298287574](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44298287574), completed in 2m4s. Reports: 14 model + 6 app tests, 0 failures/ignored; lint 0 errors/17 warnings. APK and report uploads passed; Node/action/runtime and wrapper-executable annotations remain P-010 maintenance, not failures |
 
 Historical CI test reports cover only `:core:model:test` (nine initially,
 12 in RAW+Video CI). P-016 added five CI-green app state tests; the current local
@@ -191,6 +193,20 @@ All builds are runner-debug-signed, not production release signing, and none
 implies device verification beyond what the execution record states. Fresh CI
 keys can require uninstall/reinstall between builds; preserve needed app data
 first. All generated downloads are ignored by Git.
+
+### Maximum-resolution/smooth-zoom build (verified; not installed)
+
+- Run: [44298287574](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44298287574),
+  source commit `d0ccb4003d45836f45df8ceeaeb7428becdf7145`; workflow success.
+- Local artifact: `app/build/ci/44298287574/camera3-debug-apk/app-debug.apk`;
+  62,268,381 bytes, SHA256
+  `69A5B0F6186DC5B3BF9C72A845B47CCB7CFA77921E64FD39B765B9C1A2317910`.
+- `apksigner` verified v2 signing. `aapt2` verified Camera3 /
+  `dev.camera3.app` / `0.1.0-dev` / minSdk35 / targetSdk36.
+- Downloaded reports show 14 model + 6 app tests, no failures/ignored; lint
+  0 errors/17 warnings.
+- Not installed or device-tested by instruction. This artifact does not prove
+  maximum-resolution map availability, output dimensions or smooth-zoom feel.
 
 ### P-016 correction build (installed; regression resolved, media partial)
 

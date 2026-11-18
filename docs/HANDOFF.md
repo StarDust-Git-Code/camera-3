@@ -1,9 +1,9 @@
 # Handoff: read first when resuming
 
-Last updated: 2026-11-18. P-016 correction `cc73c69` is CI-green and passed its
-device retest. Maximum-resolution still discovery plus smooth Video zoom are
-implemented and locally tested but uncommitted/device-unverified. No phone access
-is authorized for the current implementation phase.
+Last updated: 2026-11-18. Maximum-resolution still discovery plus smooth Video
+zoom are published and CI-green at `d0ccb40`; device behavior is unverified.
+P-016 remains resolved for its reproduced path. No phone access is authorized
+for the current implementation phase.
 
 ## Current state
 
@@ -20,13 +20,17 @@ is authorized for the current implementation phase.
 - Standard Video (D-017): configured 1920×1080 session; user reports FHD/30
   recording works. MP4 track/orientation/cadence/A/V checks remain. User reports
   OIS does not work; current code does not request/verify OIS/EIS (P-017).
-- Current uncommitted tranche (D-019): separate maximum-resolution map discovery,
+- Published D-019 tranche: separate maximum-resolution map discovery,
   writable pixel-mode and real-output policy, pixel-mode-aware output/session/
   still request, persisted HI-RES UI with actual-MP labels, and smoothstep Video
   zoom in logarithmic ratio space at approximately 30 Hz.
-- Current local evidence: final full gate passed in 36s with 14 model + 6 app
+- Publication evidence: final local full gate passed in 36s with 14 model + 6 app
   tests, no failures/errors/skips; lint 0 errors/16 warnings. Local debug APK is
   62,568,619 bytes, SHA256 `5E01DBFA…942D13`; v2 signature/package check passed.
+- Commit `d0ccb40`, CI run 44298287574 passed in 2m4s. Downloaded APK is
+  62,268,381 bytes, SHA256 `69A5B0F6…317910`; v2 signature, Camera3 package,
+  minSdk35/targetSdk36 checked. Reports show 14 model + 6 app tests, 0 failures/
+  ignored, and lint 0 errors/17 warnings.
 - D-020 GPU/MediaCodec/AudioRecord architecture for LUT, defined Log/HDR,
   bounded RAW frames, stereo and Type-C monitoring is planned only; no UI exposed.
 - Device identity: Android 16 / API 36 with spoofed Samsung props (a35x board,
@@ -85,9 +89,7 @@ is authorized for the current implementation phase.
 
 ## Exact next action
 
-1. Review the complete diff, commit/push the maximum-resolution/smooth-zoom
-   tranche and validate its CI artifacts.
-2. Begin D-020 architecture without exposing unfinished controls.
-3. When phone testing is authorized again, first record maximum-resolution maps,
+1. Begin D-020 architecture without exposing unfinished controls.
+2. When phone testing is authorized again, first record maximum-resolution maps,
    session acceptance and saved dimensions; then inspect DNG/MP4, zoom feel,
    stabilization, RAW throughput, stereo channels and effective USB/IEM routing.
