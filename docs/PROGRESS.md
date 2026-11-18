@@ -183,13 +183,22 @@ completed with fixes for two runtime findings awaiting the next CI build.
 - Device verification for RAW (chip per lens, session-probe outcome, saved DNG
   + rotation) and the deferred UI checks (Logs/share, full-caps detail, clean
   close logs, capability labels) ride with the next device session.
-- Video (M4) is planned next after RAW device verification: MediaRecorder
+- Video (M4) planned items were scoped during the RAW wait: MediaRecorder
   surface pairing, record/stop state machine, orientation hint, silent mode
   without mic grant, session reconfiguration.
 - RAW commit `7905a89` pushed; CI run 44247877745 passed (foreground watch).
   RAW-build APK downloaded and verified locally (SHA256, v2 signature, package
   identity; 11 tests / 0 failures in CI); phone was disconnected at the install
   attempt, so RAW device verification is pending the next connection.
+- Video (M4) first cut implemented per D-017 while the phone is away: bounded
+  16:9 ≤1080p MediaRecorder policy with aspect-matched preview (12/12 model
+  tests), plan-driven sessions (`StreamPlan.Photo`/`Video`) that close/reopen
+  the camera on mode switch, recorder prepared before `openCamera` with a
+  pending MediaStore fd, record start adds the recorder surface to the
+  repeating request, shared finalize (publish if frames recorded, discard
+  otherwise) used by user stop, backgrounding and `close()`, silent mode
+  without `RECORD_AUDIO` (Settings Grant row), REC timer UI, and honest
+  "Video unavailable on this lens" copy when no qualifying pairing exists.
 
 ## Active blockers
 
@@ -200,6 +209,8 @@ completed with fixes for two runtime findings awaiting the next CI build.
 - **P-011/P-012:** fix build is installed; clean close logs and capability
   labels still need the next device session.
 - **P-013:** resolved. No hard blocker; the user controls phone availability.
+- The next build carries both RAW and Video (M4 first cut); both pipelines are
+  device-unverified until that install and session.
 
 ## Update policy
 

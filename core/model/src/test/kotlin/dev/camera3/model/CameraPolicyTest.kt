@@ -69,4 +69,21 @@ class CameraPolicyTest {
         // Capability reported but no aspect-matching size: no configuration is invented.
         assertNull(CameraPolicy.configuration(advertised.copy(rawSizes = listOf(Dimensions(1920, 1080))), true))
     }
+    @Test fun videoNeedsBoundedWideSizeAndMatchingPreview() {
+        val camera = camera().copy(videoSizes = listOf(
+            Dimensions(3840, 2160), Dimensions(1920, 1080), Dimensions(1280, 720),
+            Dimensions(640, 480),
+        ), previewSizes = listOf(Dimensions(1440, 1080), Dimensions(1280, 720), Dimensions(640, 480)))
+        val config = CameraPolicy.videoConfiguration(camera, mic = true)!!
+        assertEquals(Dimensions(1920, 1080), config.video)
+        assertEquals(Dimensions(1280, 720), config.preview)
+        assertTrue(config.mic)
+        assertTrue(CameraPolicy.videoConfiguration(camera, mic = false)!!.preview.width == 1280)
+        // No 16:9 preview for any 16:9 video size: the mode stays unavailable.
+        assertNull(CameraPolicy.videoConfiguration(
+            camera.copy(previewSizes = listOf(Dimensions(1440, 1080))), mic = false))
+        // Nothing under the bound except 4:3 sizes: unavailable, not invented.
+        assertNull(CameraPolicy.videoConfiguration(
+            camera.copy(videoSizes = listOf(Dimensions(640, 480))), mic = false))
+    }
 }

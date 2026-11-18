@@ -2,6 +2,7 @@ package dev.camera3.camera
 
 import android.content.Context
 import android.graphics.ImageFormat
+import android.media.MediaRecorder
 import android.hardware.camera2.CameraCharacteristics as CC
 import android.hardware.camera2.CameraManager
 import android.view.SurfaceHolder
@@ -26,6 +27,11 @@ class CameraDiscovery(context: Context, private val logger: AppLogger) {
                         logger.log(LogLevel.WARNING, "Discovery", "RAW size query failed for ID $id", error)
                         emptyList()
                     }
+                val videoSizes = try { map?.getOutputSizes(MediaRecorder::class.java)?.map { Dimensions(it.width, it.height) }.orEmpty() }
+                    catch (error: Exception) {
+                        logger.log(LogLevel.WARNING, "Discovery", "MediaRecorder size query failed for ID $id", error)
+                        emptyList()
+                    }
                 val descriptor = CameraDescriptor(
                     id = id,
                     facing = when (c[CC.LENS_FACING]) {
@@ -46,6 +52,7 @@ class CameraDiscovery(context: Context, private val logger: AppLogger) {
                     jpegSizes = map?.getOutputSizes(ImageFormat.JPEG)?.map { Dimensions(it.width, it.height) }.orEmpty(),
                     previewSizes = map?.getOutputSizes(SurfaceHolder::class.java)?.map { Dimensions(it.width, it.height) }.orEmpty(),
                     rawSizes = rawSizes,
+                    videoSizes = videoSizes,
                     physicalIds = c.physicalCameraIds,
                     capabilities = caps.map { capabilityName(it) }.toSet(),
                     requestKeys = keys,
@@ -70,9 +77,10 @@ class CameraDiscovery(context: Context, private val logger: AppLogger) {
                         "Dynamic range profile IDs" to (c[CC.REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES]?.supportedProfiles?.joinToString() ?: "Not reported"),
                         "High-speed sizes" to (map?.highSpeedVideoSizes?.joinToString() ?: "Not reported"),
                         "RAW output sizes" to (rawSizes.takeIf { it.isNotEmpty() }?.joinToString() ?: "Not reported"),
+                        "MediaRecorder sizes" to (videoSizes.takeIf { it.isNotEmpty() }?.joinToString() ?: "Not reported"),
                     ),
                 )
-                logger.log(LogLevel.INFO, "Discovery", "ID $id: ${descriptor.facing}, ${descriptor.level}, JPEG sizes=${descriptor.jpegSizes.size}, RAW sizes=${descriptor.rawSizes.size}, capabilities=${descriptor.capabilities}")
+                logger.log(LogLevel.INFO, "Discovery", "ID $id: ${descriptor.facing}, ${descriptor.level}, JPEG sizes=${descriptor.jpegSizes.size}, RAW sizes=${descriptor.rawSizes.size}, video sizes=${descriptor.videoSizes.size}, capabilities=${descriptor.capabilities}")
                 descriptor
             } catch (error: Exception) {
                 logger.log(LogLevel.ERROR, "Discovery", "Cannot inspect camera ID $id", error)

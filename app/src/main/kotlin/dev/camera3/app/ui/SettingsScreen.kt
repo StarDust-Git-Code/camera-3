@@ -1,5 +1,7 @@
 package dev.camera3.app.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,6 +20,9 @@ import dev.camera3.app.CameraViewModel
 fun SettingsScreen(ui: CameraUiState, model: CameraViewModel, back: () -> Unit,
                    diagnostics: () -> Unit, logs: () -> Unit, permissions: () -> Unit) {
     var quality by remember(ui.preferences.jpegQuality) { mutableFloatStateOf(ui.preferences.jpegQuality.toFloat()) }
+    val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        model.checkPermission()
+    }
     PageHeader("Settings", back)
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Text("CAPTURE", color = Muted, style = MaterialTheme.typography.labelMedium) }
@@ -42,6 +47,21 @@ fun SettingsScreen(ui: CameraUiState, model: CameraViewModel, back: () -> Unit,
                 }
             }
         }
+        item {
+            Surface(color = Panel, shape = RoundedCornerShape(12.dp)) {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Mic, null); Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Microphone for video")
+                        Text(if (ui.micGranted) "Granted · recordings include sound"
+                        else "Not granted · video records silently", color = Muted, style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (!ui.micGranted) TextButton(onClick = {
+                        micLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                    }) { Text("Grant") }
+                }
+            }
+        }
         item { Text("SYSTEM & DIAGNOSTICS", color = Muted, style = MaterialTheme.typography.labelMedium) }
         item { SettingsRow(Icons.Default.Memory, "Camera diagnostics", "Actual camera levels, capabilities, streams and keys", diagnostics) }
         item { SettingsRow(Icons.Default.ReceiptLong, "Logs", "Debug, info, warning, error · export and share", logs) }
@@ -49,7 +69,7 @@ fun SettingsScreen(ui: CameraUiState, model: CameraViewModel, back: () -> Unit,
         item {
             Text("Camera3 ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
-            Text("Android 15+ · Kotlin · Compose · Camera2\nDevelopment build: Photo (JPEG + RAW DNG on lenses that advertise it), automatic focus/exposure, supported torch/zoom. Extensions and video recording are not implemented yet.",
+            Text("Android 15+ · Kotlin · Compose · Camera2\nDevelopment build: Photo (JPEG + RAW DNG on lenses that advertise it), Video (MP4, sound when the microphone is granted), automatic focus/exposure, supported torch/zoom. Extension modes are not implemented yet.",
                 color = Muted, style = MaterialTheme.typography.bodySmall)
         }
     }

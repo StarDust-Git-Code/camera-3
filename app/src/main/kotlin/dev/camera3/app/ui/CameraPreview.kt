@@ -18,13 +18,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.camera3.model.CameraDescriptor
 import dev.camera3.model.CameraPolicy
+import dev.camera3.model.Dimensions
 import dev.camera3.model.LensFacing
-import dev.camera3.model.PhotoConfiguration
 
 @Composable
 fun CameraPreview(
     camera: CameraDescriptor,
-    configuration: PhotoConfiguration,
+    preview: Dimensions,
     grid: Boolean,
     modifier: Modifier = Modifier,
     attach: (Surface) -> Unit,
@@ -45,18 +45,18 @@ fun CameraPreview(
         onDispose { manager.unregisterDisplayListener(listener) }
     }
     val relative = CameraPolicy.relativeRotation(camera.sensorOrientation, rotation * 90, camera.facing == LensFacing.FRONT)
-    val aspect = if (relative % 180 == 0) configuration.preview.width.toFloat() / configuration.preview.height
-        else configuration.preview.height.toFloat() / configuration.preview.width
+    val aspect = if (relative % 180 == 0) preview.width.toFloat() / preview.height
+        else preview.height.toFloat() / preview.width
     // Fit rather than stretch or silently crop. SurfaceView performs camera/display rotation.
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val previewModifier = if (maxWidth / maxHeight > aspect) Modifier.fillMaxHeight().aspectRatio(aspect)
             else Modifier.fillMaxWidth().aspectRatio(aspect)
         Box(previewModifier) {
-            key(camera.id, configuration) {
+            key(camera.id, preview.width, preview.height) {
                 AndroidView(
                     factory = { ctx ->
                         SurfaceView(ctx).apply {
-                            holder.setFixedSize(configuration.preview.width, configuration.preview.height)
+                            holder.setFixedSize(preview.width, preview.height)
                             holder.addCallback(object : SurfaceHolder.Callback {
                                 override fun surfaceCreated(holder: SurfaceHolder) { attachLatest(holder.surface) }
                                 override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {

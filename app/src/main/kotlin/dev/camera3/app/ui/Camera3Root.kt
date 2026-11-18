@@ -25,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -38,9 +39,12 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.camera3.app.CameraUiState
 import dev.camera3.app.CameraViewModel
+import dev.camera3.model.CameraMode
 import dev.camera3.model.CameraPhase
 import dev.camera3.model.CameraPolicy
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
@@ -107,7 +111,7 @@ fun Camera3Root(model: CameraViewModel) {
                     openPhoto = { uri ->
                         try {
                             context.startActivity(Intent(Intent.ACTION_VIEW).apply {
-                                setDataAndType(uri, "image/*")
+                                setDataAndType(uri, context.contentResolver.getType(uri) ?: "image/*")
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             })
                         } catch (_: ActivityNotFoundException) { notice = "No installed app can open this photo" }
@@ -148,21 +152,29 @@ private fun ColumnScope.CameraScreen(
         IconButton(onClick = model::torch, enabled = ready && ui.selected?.supportsTorch == true) {
             Icon(if (ui.runtime.torch) Icons.Default.FlashOn else Icons.Default.FlashOff, "Toggle continuous torch")
         }
-        if (ui.selected?.supportsRaw == true) {
-            FilterChip(selected = ui.preferences.raw, onClick = { model.setRaw(!ui.preferences.raw) },
-                enabled = changingAllowed, label = { Text("RAW") })
+        if (ui.mode == CameraMode.PHOTO) {
+            if (ui.selected?.supportsRaw == true) {
+                FilterChip(selected = ui.preferences.raw, onClick = { model.setRaw(!ui.preferences.raw) },
+                    enabled = changingAllowed, label = { Text("RAW") })
+            } else {
+                Text("JPEG", style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.border(1.dp, Muted, RoundedCornerShape(4.dp)).padding(horizontal = 8.dp, vertical = 3.dp))
+            }
+            Text(ui.configuration?.jpeg?.let {
+                "${String.format(Locale.US, "%.1f", it.area / 1_000_000.0)} MP" + if (ui.preferences.raw) " · RAW" else ""
+            } ?: "PHOTO", style = MaterialTheme.typography.labelMedium)
         } else {
-            Text("JPEG", style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.border(1.dp, Muted, RoundedCornerShape(4.dp)).padding(horizontal = 8.dp, vertical = 3.dp))
+            Text(ui.videoConfiguration?.let {
+                "MP4 · ${it.video.height}p" + if (!it.mic) " · silent" else ""
+            } ?: "MP4 · unavailable", style = MaterialTheme.typography.labelMedium)
         }
-        Text(ui.configuration?.jpeg?.let {
-            "${String.format(Locale.US, "%.1f", it.area / 1_000_000.0)} MP" + if (ui.preferences.raw) " · RAW" else ""
-        } ?: "PHOTO", style = MaterialTheme.typography.labelMedium)
         IconButton(onClick = settings) { Icon(Icons.Default.Settings, "Open settings") }
     }
     Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
         val camera = ui.selected
         val config = ui.configuration
+        val videoConfig = ui.videoConfiguration
+        val preview = if (ui.mode == CameraMode.PHOTO) config?.preview else videoConfig?.preview
         when {
             !ui.permission -> CameraMessage("Camera access", "Allow camera access to inspect real hardware and start the viewfinder.",
                 "Allow camera", askPermission, "App permissions", appSettings)
@@ -171,10 +183,16 @@ private fun ColumnScope.CameraScreen(
             }
             !ui.eligible -> CameraMessage("LEVEL_3 required", "No accessible camera reports LEVEL_3. Capture is disabled on this device.",
                 "Retry discovery", model::retry, "View diagnostics", diagnostics)
-            camera == null || config == null -> CameraMessage("No baseline configuration", "LEVEL_3 is reported, but no qualifying camera exposes matching JPEG and preview sizes.",
+            camera == null || (ui.mode == CameraMode.PHOTO && config == null) -> CameraMessage("No baseline configuration",
+                "LEVEL_3 is reported, but no qualifying camera exposes matching JPEG and preview sizes.",
                 "Retry discovery", model::discover, "View diagnostics", diagnostics)
-            else -> {
-                CameraPreview(camera, config, ui.preferences.grid, Modifier.fillMaxSize(), model::attachSurface, model::detachSurface)
+            ui.mode == CameraMode.VIDEO && videoConfig == null -> CameraMessage("Video unavailable on this lens",
+                "No 16:9 MediaRecorder size at or under 1080p has a matching preview stream. Photo remains available.",
+                "Back to photo", { model.setMode(CameraMode.PHOTO) }, "View diagnostics", diagnostics)
+            camera != null && preview != null -> {
+                key(ui.mode) {
+                    CameraPreview(camera, preview, ui.preferences.grid, Modifier.fillMaxSize(), model::attachSurface, model::detachSurface)
+                }
                 if (ui.runtime.phase == CameraPhase.ERROR) {
                     CameraMessage("Camera could not start", ui.runtime.message, "Retry", model::retry, "Diagnostics", diagnostics)
                 } else if (ui.runtime.phase in listOf(CameraPhase.OPENING, CameraPhase.CONFIGURING, CameraPhase.CLOSING)) {
@@ -194,30 +212,70 @@ private fun ColumnScope.CameraScreen(
     if (ui.eligible && ui.cameras.size > 1) LazyRow(
         Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        items(ui.cameras.filter { CameraPolicy.configuration(it, ui.preferences.raw) != null }, key = { it.id }) { camera ->
+        items(ui.cameras.filter { camera ->
+            if (ui.mode == CameraMode.PHOTO) CameraPolicy.configuration(camera, ui.preferences.raw) != null
+            else CameraPolicy.videoConfiguration(camera, ui.micGranted) != null
+        }, key = { it.id }) { camera ->
             FilterChip(selected = camera.id == ui.selectedId, onClick = { model.selectCamera(camera.id) },
                 label = { Text(camera.label) }, enabled = changingAllowed)
         }
     }
     LazyRow(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally)) {
-        items(listOf("Night", "Portrait", "Photo", "Video", "Pro Video")) { mode ->
-            if (mode == "Photo") Surface(shape = CircleShape, color = Foreground, modifier = Modifier.padding(vertical = 8.dp)) {
-                Text("Photo", color = Ink, modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium)
-            } else TextButton(onClick = {}, enabled = false) { Text(mode, style = MaterialTheme.typography.labelMedium) }
+        items(listOf("Night", "Portrait", "Photo", "Video", "Pro Video")) { label ->
+            val mode = if (label == "Photo") CameraMode.PHOTO else CameraMode.VIDEO
+            val usable = mode == CameraMode.PHOTO && ui.configuration != null || mode == CameraMode.VIDEO && ui.videoUsable
+            when {
+                label !in listOf("Photo", "Video") ->
+                    TextButton(onClick = {}, enabled = false) { Text(label, style = MaterialTheme.typography.labelMedium) }
+                ui.mode == mode -> Surface(shape = CircleShape, color = Foreground, modifier = Modifier.padding(vertical = 8.dp)) {
+                    Text(label, color = Ink, modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.labelMedium)
+                }
+                else -> TextButton(onClick = { model.setMode(mode) }, enabled = usable && changingAllowed) {
+                    Text(label, style = MaterialTheme.typography.labelMedium)
+                }
+            }
         }
     }
-    Text(if (ui.selected?.supportsRaw == true) "Photo capture · RAW (DNG) available on this lens"
-        else "This development build supports Photo only", color = Muted, style = MaterialTheme.typography.labelSmall,
-        modifier = Modifier.align(Alignment.CenterHorizontally))
+    val recording = ui.runtime.phase == CameraPhase.RECORDING
+    if (recording) {
+        val seconds = remember(ui.runtime.phase, ui.runtime.cameraId) { mutableIntStateOf(0) }
+        LaunchedEffect(ui.runtime.phase, ui.runtime.cameraId) {
+            while (isActive) { delay(1_000); seconds.intValue++ }
+        }
+        Text(String.format(Locale.US, "● REC %02d:%02d", seconds.intValue / 60, seconds.intValue % 60),
+            color = Color(0xFFFF5252), style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.align(Alignment.CenterHorizontally))
+    } else {
+        Text(when {
+            ui.mode == CameraMode.VIDEO -> if (ui.micGranted) "Video · MP4 with sound to DCIM/Camera3"
+                else "Video · silent MP4 to DCIM/Camera3 (no microphone)"
+            ui.selected?.supportsRaw == true -> "Photo capture · RAW (DNG) available on this lens"
+            else -> "This development build supports Photo only"
+        }, color = Muted, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.align(Alignment.CenterHorizontally))
+    }
     Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
         GalleryButton(ui.lastPhoto, openPhoto)
-        Surface(onClick = { model.capture(context.display?.rotation ?: 0) }, enabled = ready,
-            shape = CircleShape, color = Ink, modifier = Modifier.size(76.dp).border(2.dp, if (ready) Foreground else Muted, CircleShape)) {
-            Box(Modifier.padding(6.dp).background(if (ready) Foreground else Panel, CircleShape), contentAlignment = Alignment.Center) {
-                if (ui.runtime.phase == CameraPhase.CAPTURING) CircularProgressIndicator(Modifier.size(24.dp), color = Foreground)
-                else Icon(Icons.Default.CameraAlt, "Capture JPEG photo", tint = if (ready) Ink else Muted, modifier = Modifier.size(22.dp))
+        Surface(onClick = {
+            if (ui.mode == CameraMode.VIDEO) {
+                if (recording) model.stopRecording() else model.startRecording()
+            } else model.capture(context.display?.rotation ?: 0)
+        }, enabled = if (ui.mode == CameraMode.VIDEO) (recording || (ready && !ui.busy)) else ready,
+            shape = CircleShape, color = Ink,
+            modifier = Modifier.size(76.dp).border(2.dp, if (recording) Color(0xFFFF5252) else if (ready) Foreground else Muted, CircleShape)) {
+            Box(Modifier.padding(6.dp).background(if (ready || recording) Foreground else Panel, CircleShape), contentAlignment = Alignment.Center) {
+                if (ui.runtime.phase == CameraPhase.CAPTURING) {
+                    CircularProgressIndicator(Modifier.size(24.dp), color = Foreground)
+                } else when (ui.mode) {
+                    CameraMode.VIDEO -> Icon(if (recording) Icons.Default.Stop else Icons.Default.FiberManualRecord,
+                        if (recording) "Stop recording" else "Start recording",
+                        tint = if (recording) Ink else Color(0xFFFF5252), modifier = Modifier.size(26.dp))
+                    CameraMode.PHOTO -> Icon(Icons.Default.CameraAlt, "Capture JPEG photo",
+                        tint = if (ready) Ink else Muted, modifier = Modifier.size(22.dp))
+                }
             }
         }
         IconButton(onClick = model::switchCamera, enabled = ui.eligible && ui.cameras.size > 1 && changingAllowed,

@@ -8,9 +8,11 @@ import android.hardware.camera2.params.OutputConfiguration
 import android.hardware.camera2.params.SessionConfiguration
 import android.media.Image
 import android.media.ImageReader
+import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.view.Surface
 import dev.camera3.diagnostics.AppLogger
@@ -21,6 +23,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.Executor
 
+/** What a session is configured to produce; switching it reconfigures the camera. */
+sealed interface StreamPlan {
+    val mode: CameraMode
+    data class Photo(val photo: PhotoConfiguration) : StreamPlan {
+        override val mode get() = CameraMode.PHOTO
+    }
+    data class Video(val video: VideoConfiguration) : StreamPlan {
+        override val mode get() = CameraMode.VIDEO
+    }
+}
+
 /** All device/session mutations and callbacks are confined to a single handler. */
 class CameraEngine(
     context: Context,
@@ -29,6 +42,7 @@ class CameraEngine(
     private val ioScope: CoroutineScope,
 ) {
     private val manager = context.applicationContext.getSystemService(CameraManager::class.java)
+    private val appContext = context.applicationContext
     private val thread = HandlerThread("Camera3-camera").apply { start() }
     private val handler = Handler(thread.looper)
     private val executor = Executor { handler.post(it) }
@@ -37,10 +51,15 @@ class CameraEngine(
     private val _lastPhoto = MutableStateFlow<Uri?>(null)
     val lastPhoto = _lastPhoto.asStateFlow()
 
-    private data class Source(val camera: CameraDescriptor, val config: PhotoConfiguration, val surface: Surface)
+    private data class Source(
+        val camera: CameraDescriptor,
+        val plan: StreamPlan,
+        val surface: Surface,
+        val displayDegrees: Int, // Frozen at attach time for the recorder's orientation hint.
+    )
     // pendingJpeg/pendingRaw track save jobs from arrival to settle; a capture finishes only
     // when every expected output has settled, so a failed JPEG still waits for its DNG.
-    private class Run(val epoch: Long, val source: Source, val reader: ImageReader, val rawReader: ImageReader?) {
+    private class Run(val epoch: Long, val source: Source, val reader: ImageReader?, val rawReader: ImageReader?) {
         var device: CameraDevice? = null
         var session: CameraCaptureSession? = null
         var closing = false
@@ -55,6 +74,12 @@ class CameraEngine(
         var rawImage: Image? = null
         var rawResult: TotalCaptureResult? = null
         var exif = 1
+        var recorder: MediaRecorder? = null
+        var recorderSurface: Surface? = null
+        var videoUri: Uri? = null
+        var videoFd: ParcelFileDescriptor? = null
+        var recording = false
+        var stopping = false
         var captureId: Long? = null
         var timeout: Runnable? = null
         var lastTelemetry = 0L
@@ -69,8 +94,11 @@ class CameraEngine(
     private var imageJobs = 0
     private var preferences = PhotoPreferences()
 
-    fun setSource(camera: CameraDescriptor, config: PhotoConfiguration, surface: Surface) = post {
-        val source = Source(camera, config, surface)
+    // Phases in which user controls (zoom/torch) may re-submit the repeating request.
+    private val CONTROL_PHASES = listOf(CameraPhase.PREVIEWING, CameraPhase.RECORDING)
+
+    fun setSource(camera: CameraDescriptor, plan: StreamPlan, surface: Surface, displayDegrees: Int = 0) = post {
+        val source = Source(camera, plan, surface, displayDegrees)
         if (source != desired) blocked = false
         desired = source
         reconcile()
@@ -113,18 +141,27 @@ class CameraEngine(
 
     @SuppressLint("MissingPermission") // Permission is gated by the app; revocation is caught as a real error.
     private fun open(source: Source) {
-        val reader = ImageReader.newInstance(source.config.jpeg.width, source.config.jpeg.height, ImageFormat.JPEG, 2)
-        val rawReader = source.config.raw?.let {
+        val reader = if (source.plan is StreamPlan.Photo) {
+            ImageReader.newInstance(source.plan.photo.jpeg.width, source.plan.photo.jpeg.height, ImageFormat.JPEG, 2)
+        } else null
+        val rawReader = (source.plan as? StreamPlan.Photo)?.photo?.raw?.let {
             ImageReader.newInstance(it.width, it.height, ImageFormat.RAW_SENSOR, 2)
         }
         val run = Run(++epoch, source, reader, rawReader)
         active = run
-        _runtime.value = CameraRuntime(CameraPhase.OPENING, source.camera.id, source.config, "Opening ${source.camera.label}")
-        reader.setOnImageAvailableListener({ receiveImage(run) }, handler)
+        val opened = when (val plan = source.plan) {
+            is StreamPlan.Photo -> "Photo · JPEG=${plan.photo.jpeg}, preview=${plan.photo.preview}" +
+                (plan.photo.raw?.let { ", RAW=$it" } ?: "")
+            is StreamPlan.Video -> "Video · ${plan.video.video}, preview=${plan.video.preview}" +
+                (if (plan.video.mic) ", mic" else ", silent")
+        }
+        _runtime.value = CameraRuntime(CameraPhase.OPENING, source.plan.mode, source.camera.id, null,
+            "Opening ${source.camera.label}")
+        reader?.setOnImageAvailableListener({ receiveImage(run) }, handler)
         rawReader?.setOnImageAvailableListener({ receiveRaw(run) }, handler)
-        logger.log(LogLevel.INFO, "Camera", "Opening ID ${source.camera.id}, epoch=${run.epoch}, JPEG=${source.config.jpeg}, preview=${source.config.preview}" +
-            (source.config.raw?.let { ", RAW=$it" } ?: ""))
+        logger.log(LogLevel.INFO, "Camera", "Opening ID ${source.camera.id}, epoch=${run.epoch}, $opened")
         try {
+            if (source.plan is StreamPlan.Video) prepareRecorder(run)
             manager.openCamera(source.camera.id, executor, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
                     run.device = camera
@@ -152,30 +189,81 @@ class CameraEngine(
             run.deviceClosed = true
             active = null
             releaseReaderIfSafe(run)
+            finalizeRecording(run, publish = false)
             fail(null, "Cannot open camera ${source.camera.id}", error)
+        }
+    }
+
+    // Handler thread. The recorder surface must exist before the session is configured, so
+    // the recorder is prepared here with its MediaStore file descriptor already assigned.
+    private fun prepareRecorder(run: Run) {
+        val video = (run.source.plan as StreamPlan.Video).video
+        val output = store.openVideoOutput()
+        run.videoUri = output.uri
+        run.videoFd = output.descriptor
+        val recorder = MediaRecorder(appContext)
+        run.recorder = recorder
+        try {
+            if (video.mic) recorder.setAudioSource(MediaRecorder.AudioSource.MIC)
+            recorder.setVideoSource(MediaRecorder.VideoSource.SURFACE)
+            recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            recorder.setOutputFile(output.descriptor.fileDescriptor)
+            // ~5 Mbps per megapixel keeps 1080p near 10 Mbps without a settings surface yet.
+            recorder.setVideoEncodingBitRate((video.video.area / 1_000_000 * 5L).toInt().coerceIn(4_000_000, 24_000_000))
+            recorder.setVideoFrameRate(30)
+            recorder.setVideoSize(video.video.width, video.video.height)
+            recorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264)
+            if (video.mic) {
+                recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                recorder.setAudioSamplingRate(44_100)
+                recorder.setAudioEncodingBitRate(96_000)
+            }
+            recorder.setOrientationHint(CameraPolicy.jpegOrientation(
+                run.source.camera.sensorOrientation, run.source.displayDegrees,
+                run.source.camera.facing == LensFacing.FRONT))
+            recorder.prepare()
+            run.recorderSurface = recorder.surface
+        } catch (error: Exception) {
+            run.recorder = null
+            recorder.release()
+            val uri = run.videoUri; val fd = run.videoFd
+            run.videoUri = null; run.videoFd = null
+            if (uri != null && fd != null) ioScope.launch { runCatching { store.discardVideo(uri, fd) } }
+            throw error
         }
     }
 
     private fun configure(run: Run) {
         try {
-            val streams = if (run.rawReader != null) "JPEG + RAW + preview" else "JPEG + preview"
+            val streams = when (run.source.plan) {
+                is StreamPlan.Photo -> if (run.rawReader != null) "JPEG + RAW + preview" else "JPEG + preview"
+                is StreamPlan.Video -> "preview + MediaRecorder"
+            }
             _runtime.value = _runtime.value.copy(phase = CameraPhase.CONFIGURING, message = "Configuring $streams")
             val outputs = mutableListOf(
                 OutputConfiguration(run.source.surface).apply { setMirrorMode(OutputConfiguration.MIRROR_MODE_AUTO) },
-                OutputConfiguration(run.reader.surface),
             )
+            if (run.reader != null) outputs += OutputConfiguration(run.reader.surface)
             if (run.rawReader != null) outputs += OutputConfiguration(run.rawReader.surface)
+            run.recorderSurface?.let { outputs += OutputConfiguration(it) }
             val config = SessionConfiguration(SessionConfiguration.SESSION_REGULAR, outputs, executor,
                 object : CameraCaptureSession.StateCallback() {
                     override fun onConfigured(session: CameraCaptureSession) {
                         if (active !== run || run.closing || disposed) { session.close(); return }
                         run.session = session
                         try {
-                            session.setRepeatingRequest(request(run, CameraDevice.TEMPLATE_PREVIEW).apply {
+                            val template = if (run.source.plan is StreamPlan.Video) {
+                                CameraDevice.TEMPLATE_RECORD
+                            } else CameraDevice.TEMPLATE_PREVIEW
+                            session.setRepeatingRequest(request(run, template).apply {
                                 addTarget(run.source.surface)
                             }.build(), telemetry(run), handler)
                             _runtime.value = _runtime.value.copy(phase = CameraPhase.PREVIEWING,
-                                message = if (run.rawReader != null) "Photo · JPEG + RAW" else "Photo · JPEG")
+                                message = when {
+                                    run.source.plan is StreamPlan.Video -> "Video · ready to record"
+                                    run.rawReader != null -> "Photo · JPEG + RAW"
+                                    else -> "Photo · JPEG"
+                                })
                             logger.log(LogLevel.INFO, "Session", "Preview configured: epoch=${run.epoch}")
                         } catch (error: Exception) { fail(run, "Cannot start camera preview", error) }
                     }
@@ -240,7 +328,7 @@ class CameraEngine(
 
     fun setZoom(value: Float) = post {
         val run = active ?: return@post
-        if (run.closing || _runtime.value.phase != CameraPhase.PREVIEWING || !run.source.camera.supportsZoomRatio) return@post
+        if (run.closing || _runtime.value.phase !in CONTROL_PHASES || !run.source.camera.supportsZoomRatio) return@post
         val previous = _runtime.value
         try {
             _runtime.value = previous.copy(zoom = CameraPolicy.validatedZoom(value, run.source.camera))
@@ -249,7 +337,7 @@ class CameraEngine(
     }
     fun toggleTorch() = post {
         val run = active ?: return@post
-        if (run.closing || _runtime.value.phase != CameraPhase.PREVIEWING || !run.source.camera.supportsTorch) return@post
+        if (run.closing || _runtime.value.phase !in CONTROL_PHASES || !run.source.camera.supportsTorch) return@post
         val previous = _runtime.value
         try {
             _runtime.value = previous.copy(torch = !previous.torch)
@@ -257,15 +345,18 @@ class CameraEngine(
         } catch (error: Exception) { _runtime.value = previous; fail(run, "Torch request rejected", error) }
     }
     private fun updateRepeating(run: Run) {
-        run.session!!.setRepeatingRequest(request(run, CameraDevice.TEMPLATE_PREVIEW).apply {
-            addTarget(run.source.surface)
-        }.build(), telemetry(run), handler)
+        val template = if (run.source.plan is StreamPlan.Video) CameraDevice.TEMPLATE_RECORD else CameraDevice.TEMPLATE_PREVIEW
+        val builder = request(run, template).apply { addTarget(run.source.surface) }
+        // While recording, the recorder surface must keep receiving frames.
+        if (run.recording) builder.addTarget(requireNotNull(run.recorderSurface))
+        run.session!!.setRepeatingRequest(builder.build(), telemetry(run), handler)
         logger.log(LogLevel.INFO, "Controls", "ID ${run.source.camera.id}: zoom=${_runtime.value.zoom}, torch=${_runtime.value.torch}")
     }
 
     fun capture(displayDegrees: Int) = post {
         val run = active ?: return@post
         if (_runtime.value.phase != CameraPhase.PREVIEWING || run.closing || run.captureId != null) return@post
+        if (run.source.plan !is StreamPlan.Photo) return@post
         val id = ++captureSequence
         run.captureId = id
         run.savedJpeg = false
@@ -280,7 +371,7 @@ class CameraEngine(
             // JPEG_ORIENTATION is degrees; the DNG orientation tag takes EXIF 1–8 values.
             run.exif = when (orientation) { 90 -> 6; 180 -> 3; 270 -> 8; else -> 1 }
             val builder = request(run, CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
-                addTarget(run.reader.surface)
+                addTarget(requireNotNull(run.reader).surface)
                 if (run.rawReader != null) addTarget(run.rawReader.surface)
                 set(CaptureRequest.JPEG_ORIENTATION, orientation)
                 set(CaptureRequest.JPEG_QUALITY, preferences.jpegQuality.toByte())
@@ -312,8 +403,91 @@ class CameraEngine(
         }.also { handler.postDelayed(it, 12_000) }
     }
 
+    fun startRecording() = post {
+        val run = active ?: return@post
+        if (run.source.plan !is StreamPlan.Video || _runtime.value.phase != CameraPhase.PREVIEWING ||
+            run.closing || run.recording || run.stopping) return@post
+        val recorder = run.recorder
+        if (recorder == null) { fail(run, "Recorder is not prepared"); return@post }
+        try {
+            run.recording = true
+            _runtime.value = _runtime.value.copy(phase = CameraPhase.RECORDING, message = "Recording · tap to stop")
+            // The recorder surface must be an active capture target for frames to reach it.
+            val builder = request(run, CameraDevice.TEMPLATE_RECORD).apply {
+                addTarget(run.source.surface)
+                addTarget(requireNotNull(run.recorderSurface))
+            }
+            run.session!!.setRepeatingRequest(builder.build(), telemetry(run), handler)
+            recorder.start()
+            logger.log(LogLevel.INFO, "Record", "Recording started: epoch=${run.epoch}, mic=${(run.source.plan as StreamPlan.Video).video.mic}")
+        } catch (error: Exception) {
+            run.recording = false
+            fail(run, "Cannot start recording", error)
+        }
+    }
+
+    fun stopRecording() = post {
+        val run = active ?: return@post
+        if (run.source.plan !is StreamPlan.Video || !run.recording || run.stopping) return@post
+        run.stopping = true
+        _runtime.value = _runtime.value.copy(phase = CameraPhase.CAPTURING, message = "Finalizing recording…")
+        finalizeRecording(run, publish = true, reportToUser = true)
+    }
+
+    // Handler thread. Stops and releases the recorder exactly once, then either publishes
+    // the pending MediaStore entry or discards it. Used by both user stop and camera close.
+    private fun finalizeRecording(run: Run, publish: Boolean, reportToUser: Boolean = false) {
+        val recorder = run.recorder ?: return
+        run.recorder = null
+        run.recording = false
+        val uri = run.videoUri
+        val fd = run.videoFd
+        run.videoUri = null
+        run.videoFd = null
+        run.recorderSurface = null
+        val stopped = try { recorder.stop(); true } catch (error: Exception) {
+            if (reportToUser || publish) {
+                logger.log(LogLevel.WARNING, "Record", "Recording produced no usable video", error)
+            }
+            false
+        }
+        recorder.release()
+        // Give the preview back its repeating request when the session is still alive.
+        if (!run.closing && active === run && run.session != null && _runtime.value.phase == CameraPhase.CAPTURING) {
+            try { updateRepeating(run) } catch (error: Exception) { fail(run, "Cannot restart camera preview", error) }
+        }
+        if (uri == null || fd == null) { run.stopping = false; quitIfSafe(); return }
+        if (publish && stopped) {
+            ioScope.launch {
+                val outcome = runCatching { store.publishVideo(uri, fd) }
+                handler.post {
+                    run.stopping = false
+                    outcome.onSuccess {
+                        _lastPhoto.value = uri
+                        logger.log(LogLevel.INFO, "Storage", "Recording saved to DCIM/Camera3")
+                    }.onFailure { error ->
+                        logger.log(LogLevel.ERROR, "Storage", "Recording could not be published", error)
+                        ioScope.launch { runCatching { store.discardVideo(uri, fd) } }
+                    }
+                    if (active === run && !run.closing) _runtime.value = _runtime.value.copy(
+                        phase = CameraPhase.PREVIEWING,
+                        message = if (outcome.isSuccess) "Recording saved to DCIM/Camera3"
+                        else "Recording was not saved: ${outcome.exceptionOrNull()?.message}")
+                    quitIfSafe()
+                }
+            }
+        } else {
+            ioScope.launch { runCatching { store.discardVideo(uri, fd) } }
+            if (reportToUser && active === run && !run.closing) _runtime.value = _runtime.value.copy(
+                phase = CameraPhase.PREVIEWING, message = "Recording too short to save")
+            run.stopping = false
+            quitIfSafe()
+        }
+    }
+
     private fun receiveImage(run: Run) {
-        val image = try { run.reader.acquireNextImage() } catch (error: Exception) {
+        val reader = run.reader ?: return
+        val image = try { reader.acquireNextImage() } catch (error: Exception) {
             if (!run.closing) fail(run, "Cannot acquire JPEG", error)
             return
         } ?: return
@@ -420,6 +594,9 @@ class CameraEngine(
         run.closing = true
         run.timeout?.let { handler.removeCallbacks(it) }
         if (!blocked) _runtime.value = _runtime.value.copy(phase = CameraPhase.CLOSING, message = "Closing camera")
+        // A recording still in flight is stopped and published best-effort; an unstarted
+        // pending entry is discarded.
+        finalizeRecording(run, publish = run.recording)
         // reconcile() may call close() repeatedly while a run is shutting down; session teardown
         // must be idempotent so a closed session is never probed twice (duplicate ISE logs).
         run.session?.let { session ->
@@ -435,7 +612,7 @@ class CameraEngine(
         run.readersClosed = true
         run.rawImage?.let { image -> run.rawImage = null; runCatching { image.close() } }
         run.rawReader?.close()
-        run.reader.close()
+        run.reader?.close()
     }
     private fun fail(run: Run?, message: String, error: Throwable? = null) {
         if (run != null && active !== run) return

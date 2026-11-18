@@ -38,6 +38,23 @@ object CameraPolicy {
     fun relativeRotation(sensorOrientation: Int, displayDegrees: Int, front: Boolean): Int =
         (sensorOrientation - displayDegrees * (if (front) 1 else -1) + 360) % 360
 
+    // Bounded 16:9 video baseline: the largest MediaRecorder size at or under 1080p whose
+    // aspect matches an available preview stream; without a matching preview the mode is
+    // unavailable rather than shown with mismatched framing.
+    fun videoConfiguration(camera: CameraDescriptor, mic: Boolean): VideoConfiguration? {
+        val videos = camera.videoSizes
+            .filter { abs(it.aspect - 16.0 / 9) <= 0.03 && it.width <= 1920 && it.height <= 1080 }
+            .sortedByDescending { it.area }
+        for (video in videos) {
+            val preview = camera.previewSizes
+                .filter { abs(it.aspect - video.aspect) < 0.015 }
+                .filter { it.width <= 1920 && it.height <= 1080 }
+                .maxByOrNull { it.area } ?: continue
+            return VideoConfiguration(video, preview, mic)
+        }
+        return null
+    }
+
     // Display#getRotation is counterclockwise. JPEG_ORIENTATION uses clockwise device orientation.
     fun jpegOrientation(sensorOrientation: Int, displayDegrees: Int, front: Boolean): Int =
         (sensorOrientation + (if (front) displayDegrees else -displayDegrees) + 360) % 360

@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.camera3.camera.CameraEngine
+import dev.camera3.camera.StreamPlan
 import dev.camera3.model.*
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -20,9 +21,11 @@ import java.io.File
 
 data class CameraUiState(
     val permission: Boolean = false,
+    val micGranted: Boolean = false,
     val discovering: Boolean = false,
     val cameras: List<CameraDescriptor> = emptyList(),
     val selectedId: String? = null,
+    val mode: CameraMode = CameraMode.PHOTO,
     val runtime: CameraRuntime = CameraRuntime(),
     val preferences: PhotoPreferences = PhotoPreferences(),
     val lastPhoto: Uri? = null,
@@ -31,7 +34,14 @@ data class CameraUiState(
     val eligible get() = CameraPolicy.isEligible(cameras)
     val selected get() = cameras.firstOrNull { it.id == selectedId }
     val rawEnabled get() = preferences.raw
-    val configuration get() = selected?.let { CameraPolicy.configuration(it, rawEnabled) }
+    val configuration get() = selected?.let { camera ->
+        if (mode == CameraMode.PHOTO) CameraPolicy.configuration(camera, rawEnabled) else null
+    }
+    val videoConfiguration get() = selected?.let { camera ->
+        if (mode == CameraMode.VIDEO) CameraPolicy.videoConfiguration(camera, micGranted) else null
+    }
+    val videoUsable get() = selected?.let { CameraPolicy.videoConfiguration(it, micGranted) } != null
+    val busy get() = runtime.phase == CameraPhase.CAPTURING || runtime.phase == CameraPhase.RECORDING
 }
 
 class CameraViewModel(application: Application) : AndroidViewModel(application) {
@@ -57,7 +67,8 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
     fun checkPermission() {
         val granted = ContextCompat.checkSelfPermission(getApplication(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-        _ui.update { it.copy(permission = granted) }
+        val mic = ContextCompat.checkSelfPermission(getApplication(), Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        _ui.update { it.copy(permission = granted, micGranted = mic) }
         if (granted && _ui.value.cameras.isEmpty() && discoveryJob?.isActive != true) discover()
         if (!granted) engine.setForeground(false)
     }
@@ -80,22 +91,44 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
     fun selectCamera(id: String) {
         val state = _ui.value
-        if (!state.eligible || state.runtime.phase == CameraPhase.CAPTURING) return
+        if (!state.eligible || state.busy) return
         val camera = state.cameras.firstOrNull { it.id == id } ?: return
-        if (CameraPolicy.configuration(camera, state.preferences.raw) != null) _ui.update { it.copy(selectedId = id) }
+        val usable = when (state.mode) {
+            CameraMode.PHOTO -> CameraPolicy.configuration(camera, state.preferences.raw)
+            CameraMode.VIDEO -> CameraPolicy.videoConfiguration(camera, state.micGranted)
+        } != null
+        if (usable) _ui.update { it.copy(selectedId = id) }
     }
     fun switchCamera() {
         val state = _ui.value
-        val choices = state.cameras.filter { CameraPolicy.configuration(it, state.preferences.raw) != null }
+        val choices = state.cameras.filter { camera ->
+            when (state.mode) {
+                CameraMode.PHOTO -> CameraPolicy.configuration(camera, state.preferences.raw) != null
+                CameraMode.VIDEO -> CameraPolicy.videoConfiguration(camera, state.micGranted) != null
+            }
+        }
         val opposite = choices.firstOrNull { it.facing != state.selected?.facing }
         val next = opposite ?: choices.getOrNull((choices.indexOf(state.selected) + 1) % choices.size.coerceAtLeast(1))
         next?.let { selectCamera(it.id) }
     }
+    fun setMode(mode: CameraMode) {
+        val state = _ui.value
+        if (!state.eligible || state.busy || state.mode == mode) return
+        // The mode change rekeys the preview, which detaches/reattaches the surface and
+        // reconfigures the engine with the matching plan.
+        _ui.update { it.copy(mode = mode) }
+    }
 
     fun attachSurface(surface: Surface) {
         val state = _ui.value
-        if (state.permission && state.eligible) {
-            state.selected?.let { camera -> state.configuration?.let { engine.setSource(camera, it, surface) } }
+        if (!state.permission || !state.eligible) return
+        state.selected?.let { camera ->
+            val plan = when (state.mode) {
+                CameraMode.PHOTO -> state.configuration?.let { StreamPlan.Photo(it) }
+                CameraMode.VIDEO -> state.videoConfiguration?.let { StreamPlan.Video(it) }
+            } ?: return
+            val degrees = (getApplication<Application>().display?.rotation ?: 0) * 90
+            engine.setSource(camera, plan, surface, degrees)
         }
     }
     fun detachSurface(surface: Surface) = engine.detachSurface(surface)
@@ -105,6 +138,8 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         services.logger.log(LogLevel.DEBUG, "Lifecycle", "Camera foreground=$value")
     }
     fun capture(rotation: Int) = engine.capture(rotation * 90)
+    fun startRecording() = engine.startRecording()
+    fun stopRecording() = engine.stopRecording()
     fun zoom(value: Float) = engine.setZoom(value)
     fun torch() = engine.toggleTorch()
     fun retry() { if (_ui.value.cameras.isEmpty()) discover() else engine.retry() }

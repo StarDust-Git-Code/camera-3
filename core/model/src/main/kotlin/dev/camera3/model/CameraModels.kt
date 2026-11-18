@@ -2,8 +2,9 @@ package dev.camera3.model
 
 enum class HardwareLevel { LEVEL_3, FULL, LIMITED, LEGACY, EXTERNAL, UNKNOWN }
 enum class LensFacing { BACK, FRONT, EXTERNAL, UNKNOWN }
-enum class CameraPhase { IDLE, OPENING, CONFIGURING, PREVIEWING, CAPTURING, CLOSING, ERROR }
+enum class CameraPhase { IDLE, OPENING, CONFIGURING, PREVIEWING, CAPTURING, RECORDING, CLOSING, ERROR }
 enum class LogLevel { DEBUG, INFO, WARNING, ERROR }
+enum class CameraMode { PHOTO, VIDEO }
 
 data class Dimensions(val width: Int, val height: Int) {
     init { require(width > 0 && height > 0) }
@@ -20,6 +21,7 @@ data class CameraDescriptor(
     val jpegSizes: List<Dimensions>,
     val previewSizes: List<Dimensions>,
     val rawSizes: List<Dimensions> = emptyList(),
+    val videoSizes: List<Dimensions> = emptyList(),
     val physicalIds: Set<String> = emptySet(),
     val capabilities: Set<String> = emptySet(),
     val requestKeys: Set<String> = emptySet(),
@@ -39,11 +41,13 @@ data class CameraDescriptor(
 }
 
 data class PhotoConfiguration(val jpeg: Dimensions, val preview: Dimensions, val raw: Dimensions? = null)
+data class VideoConfiguration(val video: Dimensions, val preview: Dimensions, val mic: Boolean)
 data class PhotoPreferences(val grid: Boolean = false, val jpegQuality: Int = 95, val raw: Boolean = false) {
     init { require(jpegQuality in 50..100) }
 }
 data class CameraRuntime(
     val phase: CameraPhase = CameraPhase.IDLE,
+    val mode: CameraMode = CameraMode.PHOTO,
     val cameraId: String? = null,
     val configuration: PhotoConfiguration? = null,
     val message: String = "Camera is idle",

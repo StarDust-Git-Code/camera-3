@@ -3,6 +3,7 @@ package dev.camera3.media
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -14,6 +15,43 @@ import java.util.UUID
 
 class PhotoStore(context: Context) {
     private val resolver = context.applicationContext.contentResolver
+
+    // Binder calls for the pending entry and file descriptor are short; the engine calls
+    // this on its camera handler thread, not the main thread.
+    fun openVideoOutput(): VideoOutput {
+        val name = "VID_${SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())}_${UUID.randomUUID().toString().take(8)}.mp4"
+        val values = ContentValues().apply {
+            put(MediaStore.Video.Media.DISPLAY_NAME, name)
+            put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+            put(MediaStore.Video.Media.RELATIVE_PATH, "DCIM/Camera3")
+            put(MediaStore.Video.Media.IS_PENDING, 1)
+        }
+        val uri = resolver.insert(MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values)
+            ?: error("Unable to create a video entry in MediaStore")
+        val fd = try { resolver.openFileDescriptor(uri, "rw") } catch (error: Throwable) {
+            try { resolver.delete(uri, null, null) } catch (cleanup: Exception) { error.addSuppressed(cleanup) }
+            throw error
+        }
+        if (fd == null) {
+            try { resolver.delete(uri, null, null) } catch (_: Exception) { }
+            error("Unable to open the video output")
+        }
+        return VideoOutput(uri, fd)
+    }
+
+    suspend fun publishVideo(uri: Uri, fd: ParcelFileDescriptor): Uri = withContext(Dispatchers.IO) {
+        runCatching { fd.close() }
+        check(resolver.update(uri, ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }, null, null) == 1) {
+            "Unable to publish the saved recording"
+        }
+        uri
+    }
+
+    suspend fun discardVideo(uri: Uri, fd: ParcelFileDescriptor): Unit = withContext(Dispatchers.IO) {
+        runCatching { fd.close() }
+        try { resolver.delete(uri, null, null) } catch (_: Exception) { }
+        Unit
+    }
 
     suspend fun saveJpeg(bytes: ByteArray): Uri = withContext(Dispatchers.IO) {
         require(bytes.size >= 4 && bytes[0] == 0xff.toByte() && bytes[1] == 0xd8.toByte()) {
@@ -50,3 +88,5 @@ class PhotoStore(context: Context) {
         }
     }
 }
+
+data class VideoOutput(val uri: Uri, val descriptor: ParcelFileDescriptor)

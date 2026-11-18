@@ -137,6 +137,7 @@ work. DOC-04: platform/device constraints agree across canonical files.
 | 2026-11-18 | RAW pipeline local build | Passed, build-verified | `:core:model:test` 11 tests 0 failures (incl. 2 new RAW pairing tests) + `:core:camera|media|settings:compileDebugKotlin` + `:app:compileDebugKotlin` BUILD SUCCESSFUL; two real compile errors found and fixed (P-014, P-015); CI rerun remains the authoritative gate |
 | 2026-11-18 | RAW commit CI run | Passed | Commit `7905a89`, [run 44247877745](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44247877745) concluded success (foreground watch, exit 0) |
 | 2026-11-18 | RAW APK verification | Passed, host-observed | Downloaded `camera3-debug-apk`: 62,186,421 bytes, SHA256 `17ab7be0d15ed57b8f57bc56297cb8c50440f8aff74cd6aff4b2a26c1128cd78`, v2 signature verified, aapt2 confirms dev.camera3.app 0.1.0-dev; lint 0 errors/17 warnings; Gradle HTML report shows 11 tests / 0 failures; device install pending (phone disconnected at attempt) |
+| 2026-11-18 | Video pipeline local build | Passed, build-verified | `:core:model:test` 12 tests 0 failures (incl. `videoNeedsBoundedWideSizeAndMatchingPreview`) + `:core:camera|media|settings:compileDebugKotlin` + `:app:compileDebugKotlin` BUILD SUCCESSFUL; two compile errors found and fixed in-session (nullable reader target, missing appContext field); CI rerun remains the authoritative gate |
 
 Android `testDebugUnitTest` tasks were `NO-SOURCE` in all Android modules. Only
 the nine `:core:model:test` tests executed; do not describe this as camera engine,

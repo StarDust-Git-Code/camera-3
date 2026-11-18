@@ -221,6 +221,56 @@ the older proposals below are retained as design history.
   to `PREVIEWING`; partial outcomes are reported per-output in the runtime
   message (e.g. "JPEG saved, DNG failed: …").
 
+## D-017: Video recording pipeline (MediaRecorder, first cut)
+
+- **Status:** implemented engineering choice, 2026-11-18; build-verified locally
+  (12 model tests incl. the new video policy test, all touched modules compile);
+  device verification pending.
+- **Problem:** M4 requires real MP4 recording on the public Camera2 stack with
+  honest sizing, orientation and microphone behavior — no fake recorder labels.
+- **Approach:**
+  - Discovery reads `getOutputSizes(MediaRecorder::class.java)` into
+    `CameraDescriptor.videoSizes` (defensive query, per-lens detail entry).
+  - `CameraPolicy.videoConfiguration(camera, mic)` picks the largest 16:9
+    (±0.03) MediaRecorder size at or under 1080p that has an aspect-matched
+    (±0.015) preview stream ≤1080p; without such a pairing the Video mode is
+    reported unavailable rather than shown with mismatched framing.
+  - Sessions are plan-driven (`StreamPlan.Photo`/`StreamPlan.Video`); the mode
+    switch rekeys the preview surface, so the camera is closed and reopened
+    with the matching stream set (preview + recorder surface, TEMPLATE_RECORD
+    repeating request). `PhotoConfiguration` sessions keep TEMPLATE_PREVIEW.
+  - The `MediaRecorder` is prepared **before** `openCamera` (platform
+    contract: the recorder surface must exist before session configuration):
+    MPEG-4
+    container, H.264 video + AAC audio (44.1 kHz/96 kbps) only when
+    `RECORD_AUDIO` is granted, 30 fps, ~5 Mbps per megapixel (coerced
+    4–24 Mbps), size = policy's video size, `setOrientationHint` with the
+    camera/display degrees computed at attach time, output to a pending
+    MediaStore video entry opened by `PhotoStore.openVideoOutput()`.
+  - Record start re-targets the repeating request with the recorder surface
+    added (preview keeps flowing); zoom/torch remain usable while
+    `RECORDING` via `CONTROL_PHASES` and re-include the recorder surface.
+  - Stop (user tap, backgrounding, or `close()`/`dispose()`) goes through
+    `finalizeRecording`: the recorder is stopped and released exactly once,
+    the pending entry is **published** if frames were recorded (stop() threw →
+    discard as "too short") and **discarded** otherwise; the shared path keeps
+    the stop-on-close contract identical to the user stop.
+  - UI: Photo/Video tabs drive the plan; the shutter becomes
+    record/stop in Video mode with a REC timer; the top row shows
+    "MP4 · <height>p" and "· silent" when the mic is not granted; Settings
+    carries a microphone Grant row (silent by default).
+- **Verified platform facts:** `MediaRecorder(Context)` constructor and
+  `setNextPdfFile`-free fd API (`setOutputFile(FileDescriptor)`) exist at API
+  36; `setOrientationHint` takes clockwise degrees and must be called before
+  `prepare()` (documented contract).
+- **Limits (first cut):** no pause/resume, no fps/bit-rate settings surface,
+  no high-speed (120 fps+) capture, no per-clip fallback if the HAL rejects
+  the 2-stream combination (the session probe path reports it), no autofocus
+  trigger on record start, mic grant is only checked at attach time.
+- **Consequence:** every `MediaRecorder`/fd/uri lifecycle is owned by the
+  engine run and finalized exactly once; a recording cut short by leaving the
+  app is still published best-effort.
+
 ### New-decision template
 
 Add the next ID with status, date, problem, chosen approach, inspected sources/

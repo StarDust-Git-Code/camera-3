@@ -83,6 +83,17 @@ DNG file + rotation — is pending the next install; the boxes above stay open.
 Exit: playable, correctly oriented recording with validated A/V synchronization
 and no leaked camera/audio/codec resources in repeated tests.
 
+Video recording status (2026-11-18): first cut implemented and build-verified
+locally — MediaRecorder sizes in discovery, bounded 16:9 ≤1080p video policy
+with aspect-matched preview (new model test; 12 passing), plan-driven session
+reconfiguration (preview + recorder surface, TEMPLATE_RECORD), recorder
+prepared before `openCamera` with a pending MediaStore fd, shared
+start/stop/finalize used by both user stop and close (publish if frames were
+recorded, discard otherwise), silent mode without `RECORD_AUDIO`, REC timer
+UI (D-017). Device verification — real playable MP4, orientation, A/V sync,
+repeated start/stop without leaks — is pending the next install; the boxes
+above stay open.
+
 ## M5: Pro Video, HDR and high FPS
 
 - [ ] Manual recording controls supported by the active configuration.
