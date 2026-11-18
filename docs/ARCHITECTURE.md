@@ -1,7 +1,7 @@
 # Architecture
 
-Last updated: 2026-11-18. Six proposed modules now exist. Initial Photo engine,
-settings and logger compiled in Actions run 44235722163; device verification is pending.
+Last updated: 2026-11-18. Six modules exist. Photo/JPEG, RAW/DNG and first-cut
+MediaRecorder video pipelines are implemented; advanced GPU/codec/audio work is planned.
 
 ## Current implementation
 
@@ -13,12 +13,37 @@ settings and logger compiled in Actions run 44235722163; device verification is 
   Surface. Native preview rotation plus fitted aspect; mirror mode AUTO.
 - ImageReader is retained until camera closure and outstanding image IO complete;
   acquired images close in `finally`. Byte copies and MediaStore writes run on IO.
-- `core/settings`: persisted grid/quality. `core/diagnostics`: bounded actor-style
+- `core/settings`: persisted grid/quality/RAW/high-resolution preferences.
+  `core/diagnostics`: bounded actor-style
   log writer. `core/model`: Android-independent capability/configuration policy.
-- No encoder, microphone, DNG, extension session or image-analysis owner yet.
+- RAW result/image pairing and streamed DNG saving exist. Standard Video currently
+  uses MediaRecorder with optional microphone audio; no app-owned MediaCodec,
+  AudioRecord, GPU color pipeline, extension session or analysis owner exists yet.
 
 The complete state machine and future pipeline contracts below remain targets;
 current lifecycle correctness still needs stress tests on a physical device.
+
+### Current maximum-resolution and zoom tranche
+
+- Discovery reads the separate maximum-resolution stream map. Policy enables the
+  mode only when `android.sensor.pixelMode` is writable and a real maximum-resolution
+  JPEG exists; RAW additionally needs a compatible maximum-resolution RAW_SENSOR.
+- Photo configuration carries the sensor pixel mode. Matching JPEG/RAW
+  `OutputConfiguration`s declare maximum-resolution use, and only the still request
+  selects `SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION`; regular preview remains a default
+  pixel-mode request and is never targeted by the maximum-resolution still request.
+- Video zoom remains handler-confined. UI targets are interpolated with smoothstep
+  timing in logarithmic zoom-ratio space and submitted at roughly 30 Hz; replacing
+  a target cancels the old ramp without per-step INFO logging.
+
+### Planned advanced media boundary
+
+LUT, software HDR, defined Log encoding, RAW-frame storage, stereo capture and wired
+monitoring must not be bolted onto MediaRecorder. The planned boundary is Camera2 →
+GPU surface processing → MediaCodec video → MediaMuxer, plus AudioRecord PCM feeding
+both AAC and an AudioTrack monitor. A bounded RAW ImageReader/storage worker is a
+separate optional producer with explicit backpressure. Route/channel/codec support
+and complete stream combinations remain runtime gates.
 
 ## Proposed module boundaries
 

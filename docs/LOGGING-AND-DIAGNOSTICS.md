@@ -1,7 +1,8 @@
 # Logging and diagnostics
 
-Last updated: 2026-11-18. Initial logger, viewer, report and sharing source exists;
-compilation passed in Actions run 44235722163; runtime validation is pending.
+Last updated: 2026-11-18. Logger, viewer, report and sharing source is build-verified;
+on-device diagnostics screens/log capture supported the baseline and P-016 work.
+Viewer filtering, exported-share opening, retention and load acceptance remain open.
 Development issues are recorded in [PROBLEMS-AND-SOLUTIONS.md](PROBLEMS-AND-SOLUTIONS.md).
 
 ## Implemented baseline
@@ -12,7 +13,8 @@ characters and queue overflow is reported. DEBUG/INFO/WARNING/ERROR, Logcat,
 severity/search filtering, live-follow pause on drag, confirmed clear, user-led
 FileProvider/Android Sharesheet export and actual capability reports exist.
 No serials/media content or automatic uploads. Persistent logs export in
-chronological file order. Load/retention/privacy/share tests remain pending;
+chronological file order. Device logs and capability reports have been collected;
+load/retention/privacy/share tests remain pending;
 no measured performance guarantee is claimed.
 
 ## Runtime log contract

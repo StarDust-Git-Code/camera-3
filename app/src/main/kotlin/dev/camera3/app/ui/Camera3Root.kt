@@ -153,16 +153,40 @@ private fun ColumnScope.CameraScreen(
             Icon(if (ui.runtime.torch) Icons.Default.FlashOn else Icons.Default.FlashOff, "Toggle continuous torch")
         }
         if (ui.mode == CameraMode.PHOTO) {
-            if (ui.selected?.supportsRaw == true) {
-                FilterChip(selected = ui.preferences.raw, onClick = { model.setRaw(!ui.preferences.raw) },
-                    enabled = changingAllowed, label = { Text("RAW") })
-            } else {
-                Text("JPEG", style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.border(1.dp, Muted, RoundedCornerShape(4.dp)).padding(horizontal = 8.dp, vertical = 3.dp))
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (ui.selected?.supportsHighResolutionPhoto == true) {
+                        val highResolutionAllowed = CameraPolicy.configuration(
+                            ui.selected!!, ui.preferences.raw, highResolution = true,
+                        ) != null
+                        FilterChip(
+                            selected = ui.preferences.highResolution,
+                            onClick = { model.setHighResolution(!ui.preferences.highResolution) },
+                            enabled = changingAllowed && (ui.preferences.highResolution || highResolutionAllowed),
+                            label = { Text("HI-RES") },
+                        )
+                    }
+                    if (ui.selected?.supportsRaw == true || ui.selected?.supportsHighResolutionRaw == true) {
+                        val rawAllowed = CameraPolicy.configuration(
+                            ui.selected!!, rawEnabled = true,
+                            highResolution = ui.preferences.highResolution,
+                        ) != null
+                        FilterChip(
+                            selected = ui.preferences.raw,
+                            onClick = { model.setRaw(!ui.preferences.raw) },
+                            enabled = changingAllowed && (ui.preferences.raw || rawAllowed),
+                            label = { Text("RAW") },
+                        )
+                    } else {
+                        Text("JPEG", style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.border(1.dp, Muted, RoundedCornerShape(4.dp)).padding(horizontal = 8.dp, vertical = 3.dp))
+                    }
+                }
+                Text(ui.configuration?.jpeg?.let {
+                    "${String.format(Locale.US, "%.1f", it.area / 1_000_000.0)} MP" +
+                        if (ui.preferences.highResolution) " · MAX" else ""
+                } ?: "PHOTO", style = MaterialTheme.typography.labelMedium)
             }
-            Text(ui.configuration?.jpeg?.let {
-                "${String.format(Locale.US, "%.1f", it.area / 1_000_000.0)} MP" + if (ui.preferences.raw) " · RAW" else ""
-            } ?: "PHOTO", style = MaterialTheme.typography.labelMedium)
         } else {
             Text(ui.videoConfiguration?.let {
                 "MP4 · ${it.video.height}p" + if (!it.mic) " · silent" else ""
@@ -183,14 +207,19 @@ private fun ColumnScope.CameraScreen(
             }
             !ui.eligible -> CameraMessage("LEVEL_3 required", "No accessible camera reports LEVEL_3. Capture is disabled on this device.",
                 "Retry discovery", model::retry, "View diagnostics", diagnostics)
-            camera == null || (ui.mode == CameraMode.PHOTO && config == null) -> CameraMessage("No baseline configuration",
-                "LEVEL_3 is reported, but no qualifying camera exposes matching JPEG and preview sizes.",
-                "Retry discovery", model::discover, "View diagnostics", diagnostics)
+            camera == null || (ui.mode == CameraMode.PHOTO && config == null) -> CameraMessage("Photo configuration unavailable",
+                "The selected lens does not expose a compatible JPEG/RAW/preview combination for the active resolution mode.",
+                if (ui.preferences.highResolution) "Use standard photo" else "Retry discovery",
+                if (ui.preferences.highResolution) model::useStandardPhoto else model::discover,
+                "View diagnostics", diagnostics)
             ui.mode == CameraMode.VIDEO && videoConfig == null -> CameraMessage("Video unavailable on this lens",
                 "No 16:9 MediaRecorder size at or under 1080p has a matching preview stream. Photo remains available.",
                 "Back to photo", { model.setMode(CameraMode.PHOTO) }, "View diagnostics", diagnostics)
-            camera != null && preview != null -> {
-                // RAW and microphone changes must replace the session even if preview size is unchanged.
+            else -> {
+                // RAW, sensor-pixel-mode and microphone changes must replace the session even if
+                // the preview size is unchanged. Earlier branches establish non-null values here.
+                requireNotNull(camera)
+                requireNotNull(preview)
                 key(camera.id, ui.mode, config, videoConfig) {
                     CameraPreview(camera, preview, ui.preferences.grid, Modifier.fillMaxSize(), model::attachSurface, model::detachSurface)
                 }
@@ -214,7 +243,9 @@ private fun ColumnScope.CameraScreen(
         Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(ui.cameras.filter { camera ->
-            if (ui.mode == CameraMode.PHOTO) CameraPolicy.configuration(camera, ui.preferences.raw) != null
+            if (ui.mode == CameraMode.PHOTO) CameraPolicy.configuration(
+                camera, ui.preferences.raw, ui.preferences.highResolution,
+            ) != null
             else CameraPolicy.videoConfiguration(camera, ui.micGranted) != null
         }, key = { it.id }) { camera ->
             FilterChip(selected = camera.id == ui.selectedId, onClick = { model.selectCamera(camera.id) },
@@ -252,6 +283,7 @@ private fun ColumnScope.CameraScreen(
         Text(when {
             ui.mode == CameraMode.VIDEO -> if (ui.micGranted) "Video · MP4 with sound to DCIM/Camera3"
                 else "Video · silent MP4 to DCIM/Camera3 (no microphone)"
+            ui.preferences.highResolution -> "Photo capture · public maximum-resolution sensor mode"
             ui.selected?.supportsRaw == true -> "Photo capture · RAW (DNG) available on this lens"
             else -> "This development build supports Photo only"
         }, color = Muted, style = MaterialTheme.typography.labelSmall,
@@ -263,7 +295,7 @@ private fun ColumnScope.CameraScreen(
         Surface(onClick = {
             if (ui.mode == CameraMode.VIDEO) {
                 if (recording) model.stopRecording() else model.startRecording()
-            } else model.capture(context.display?.rotation ?: 0)
+            } else model.capture(context.display.rotation)
         }, enabled = if (ui.mode == CameraMode.VIDEO) (recording || (ready && !ui.busy)) else ready,
             shape = CircleShape, color = Ink,
             modifier = Modifier.size(76.dp).border(2.dp, if (recording) Color(0xFFFF5252) else if (ready) Foreground else Muted, CircleShape)) {

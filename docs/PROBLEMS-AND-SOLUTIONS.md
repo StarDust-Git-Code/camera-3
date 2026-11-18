@@ -1,9 +1,8 @@
 # Problems, investigations and solutions
 
 Last updated: 2026-11-18. This is an evidence ledger, not a list of imagined app
-bugs. The earlier baseline Photo session passed; the installed RAW+Video APK
-fails before camera open (P-016). Source corrections are locally build-verified;
-functional retest of the correction is still pending.
+bugs. P-016 is resolved for its reproduced startup path; RAW/Video acceptance is
+partial and P-017 tracks the still-unimplemented stabilization policy.
 
 ## P-001: No connected physical device
 
@@ -220,8 +219,8 @@ functional retest of the correction is still pending.
 
 ## P-016: Camera remains paused after RAW+Video reinstall
 
-- **Status:** source correction local build-verified; CI/runtime retest pending.
-  P-016 is **NOT device-resolved**; current acceptance remains blocked.
+- **Status:** resolved for the reproduced startup path. Correction `cc73c69`
+  passed CI run 44259956383 and its verified APK passed a physical retest.
 - **First observed / affected:** 2026-11-18, installed RAW+Video APK from run
   44251120868 / `409c5d9`, `dev.camera3.app` `0.1.0-dev`, on the connected
   Android 16 / API 36 phone with the user-reported modified camera stack.
@@ -262,9 +261,28 @@ functional retest of the correction is still pending.
   state tests, 0 failures/errors/skips; lint 0 errors / 16 warnings. Other
   Android-module tests remain NO-SOURCE; no physical retest performed.
   Final-source full command passed again in 49s after busy-state UI alignment.
-- **Verification required:** fresh foreground startup with gate/open/session
-  evidence, then D-02 preview and D-04/D-10/D-11 RAW/media/audio checks after an
-  evidence-backed fix. No passing retest exists yet.
+- **Device retest:** `p016-retest/fix-startup-camera-0.log` records valid Surface
+  attachment, `Opening ID 0`, configured Photo/Video sessions, mode and ID 0↔1
+  transitions, background close and relaunch. The paused/black startup state did
+  not recur. Logs also record JPEG+DNG save completion on IDs 0/1.
+- **Remaining verification:** DNG files were not opened and MP4 tracks/cadence/
+  orientation/A/V were not independently inspected. Keep the instrumentation;
+  reopen P-016 if attachment/open fails again on this modified camera stack.
+
+## P-017: Standard Video has no active stabilization policy
+
+- **Status:** open implementation/acceptance gap, not a regression in D-019.
+- **Observed:** the user reports FHD/30 recording works but OIS does not.
+- **Source finding:** the current MediaRecorder Video request configures automatic
+  capture and zoom but does not select or verify `LENS_OPTICAL_STABILIZATION_MODE`
+  or `CONTROL_VIDEO_STABILIZATION_MODE`.
+- **Consequence:** the app must not claim stabilized Video. An advertised mode is
+  insufficient because resolution/FPS/session restrictions and capture results
+  may reject or disable it.
+- **Required fix/evidence:** inventory per-lens OIS/EIS modes, define conflict and
+  fallback policy, apply only valid choices, inspect capture results and compare
+  recorded motion at the selected FHD/30 configuration. This requires later
+  authorized phone access.
 
 ### Future issue template
 

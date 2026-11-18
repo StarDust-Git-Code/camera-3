@@ -29,10 +29,10 @@ camera3/
     SOURCES.md
 ```
 
-The tree above records the documentation bootstrap. Android source, build files,
-wrapper and unit tests now exist as described below. Actions produced a verified
-debug APK; local downloads are under ignored `app/build/ci/44235722163/`, with
-package/signing evidence in [TESTING.md](TESTING.md). Generated APKs are not committed.
+The tree above records the documentation set. Android source, build files,
+wrapper and tests exist as described below. CI downloads and device-test evidence
+are kept under ignored `app/build/ci/`; exact run directories, hashes and limits
+are recorded in [TESTING.md](TESTING.md). Generated APKs are not committed.
 
 ## Implemented Android layout
 
@@ -65,9 +65,10 @@ camera3/
 ```
 
 All six modules have build files. Core source uses `src/main/kotlin/dev/camera3/`
-and module-specific packages. Model policy tests live in `core/model/src/test/`.
-`.github/workflows/android.yml` is the APK CI entry point. Instrumentation tests
-are not implemented yet. Machine-local configuration/build outputs are ignored.
+and module-specific packages. Model policy tests live in `core/model/src/test/`;
+app state tests live in `app/src/test/`. `.github/workflows/android.yml` is the
+APK CI entry point. Instrumentation tests are not implemented. Machine-local
+configuration/build outputs are ignored.
 
 ## Source organization rules
 
@@ -90,7 +91,7 @@ the reason for changes in [DECISIONS.md](DECISIONS.md).
 
 ## Artifacts and local state
 
-Future build outputs belong to Gradle build directories. Future diagnostic/test
-artifacts need named locations and privacy review; none exist now. Avoid storing
-APK binaries, raw camera images, device serials, signing keys or large log dumps
-inside Markdown. Link only to real, reviewed artifacts.
+Build outputs belong to Gradle build directories. Downloaded CI and device-test
+artifacts use ignored named directories under `app/build/ci/` and require privacy
+review. Avoid storing APK binaries, raw camera images, device serials, signing
+keys or large log dumps inside Markdown. Link only to real, reviewed artifacts.

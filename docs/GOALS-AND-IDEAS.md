@@ -1,6 +1,7 @@
 # Goals and ideas
 
-Last updated: 2026-11-18. No implementation or visual validation yet.
+Last updated: 2026-11-18. Baseline Photo, RAW/DNG and FHD/30 Video have partial
+device evidence; advanced processing/audio additions remain planned.
 
 ## Product goals
 
@@ -25,6 +26,10 @@ Last updated: 2026-11-18. No implementation or visual validation yet.
 | One diagnostic export action | Simplifies a reproducible bug report | User-initiated, privacy-filtered, size-bounded |
 | Searchable functional settings | Covers a large feature set without crowding capture | Only implemented settings can be editable |
 | Lightweight histogram and audio meters | Matches the Pro Video reference and improves monitoring | Real data only; disable when stream/performance constraints prevent it |
+| Maximum-resolution still mode | Uses genuinely exposed full-sensor JPEG/RAW streams | Actual MP label from the selected output; no upscaling or 50 MP marketing alias |
+| Smooth logarithmic video zoom | Makes ratio changes feel even across a wide zoom range | Clamp to the active lens and serialize request updates |
+| GPU color pipeline | Shared preview/encode path for LUT, software HDR and defined Log transforms | Declare transfer/gamut/bit depth and verify encoded metadata/output |
+| Wired IEM monitoring | Lets the operator hear the real recorded input | Require a routed wired/USB output; never fall back silently to speaker |
 
 ## Deferred ideas
 
@@ -32,8 +37,8 @@ Last updated: 2026-11-18. No implementation or visual validation yet.
   quality evaluation, performance budget and a separate documented decision.
 - Software multi-frame Night: requires alignment, merge, motion handling and
   tests. Ordinary long-exposure Photo must not masquerade as a Night algorithm.
-- LUT import/preview: possible future monitoring feature, not proof of recording
-  genuine Log. A LUT pipeline must declare whether it affects preview or output.
+- LUT import/preview: now required, but still deferred to the GPU/codec tranche;
+  it is not proof of genuine Log and must declare preview/output scope.
 - Focus peaking/zebra overlays: only after a valid analysis stream or rendering
   pipeline exists and has been performance-tested.
 - Simultaneous multi-camera capture/recording: only supported combinations with

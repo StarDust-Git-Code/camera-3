@@ -1,7 +1,7 @@
 # Documentation index
 
-Recorded: 2026-11-18. These documents are persistent project memory, not evidence
-that the planned application has already been built.
+Last updated: 2026-11-18. These documents are persistent project memory. Source,
+build and device claims remain separated; documentation alone is never evidence.
 
 ## Minimal resume sequence
 

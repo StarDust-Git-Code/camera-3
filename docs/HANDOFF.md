@@ -1,70 +1,64 @@
 # Handoff: read first when resuming
 
-Last updated: 2026-11-18. RAW+Video is pushed and CI-green (`409c5d9`), but
-its installed APK fails before camera open (P-016). Parallel investigation
-identified a display-context source defect; corrections/tests pass local build,
-awaiting push/CI and physical retest. Neither new pipeline is device-verified.
+Last updated: 2026-11-18. P-016 correction `cc73c69` is CI-green and passed its
+device retest. Maximum-resolution still discovery plus smooth Video zoom are
+implemented and locally tested but uncommitted/device-unverified. No phone access
+is authorized for the current implementation phase.
 
 ## Current state
 
-- Published source: `409c5d9`, run 44251120868 success; docs checkpoint
-  `0d40728`, run 44248444802 success. Both conclusions re-queried read-only.
-- Installed RAW+Video APK (host-verified, NOT functional-device-verified):
-  `app/build/ci/44251120868/camera3-debug-apk/app-debug.apk`, 62,235,613 bytes,
-  SHA256 `685ad39061ea10f34987651602bafa9b6bd8ba144a868215854ad5d9fcc628ef`;
-  v2 signature/package/API checks passed; 12 model tests / 0 failures;
-  lint 0 errors / 17 warnings. Historical APKs are recorded in TESTING.
-- Reinstall required uninstall after `INSTALL_FAILED_UPDATE_INCOMPATIBLE`;
-  streamed install succeeded, CAMERA re-granted via `pm grant`, microphone
-  user-granted. Settings reset expected; quality stays 95% (user decision).
-- P-016 artifacts: `app/build/ci/device-testing/debug-report-01/`. Discovery
-  passes (4 LEVEL_3); no `Opening ID`, no post-reinstall Camera3 CONNECT,
-  black SurfaceView / "Camera paused", both permissions granted, no crash/ANR.
-- Source finding: Application.display can throw before engine.setSource;
-  platform SurfaceView catches callback exceptions. Runtime cause/retest still
-  unverified. Also found incomplete configuration key and mode-dependent Photo
-  availability. P-016 DEBUG gate/callback logs and D-018 fixes implemented;
-  12 model + 5 app tests pass locally, lint 0 errors / 16 warnings, APK assembled.
-- RAW/DNG pipeline (D-016, build-verified, NOT device-verified):
-  real-size/capability/aspect gating; JPEG+RAW request and result/image pairing;
-  both saves must settle with a re-arming watchdog; DngCreator streams DNG to
-  MediaStore. Details/limits in DECISIONS D-016 and TESTING.
-- Video pipeline first cut (D-017, CI build-verified, NOT device-verified):
-  real MediaRecorder sizes + matched preview, 16:9 ≤1080p, H264/MP4 30fps;
-  AAC only with mic permission; recorder prepared before open; shared finalize
-  publishes recorded takes or discards unusable output on stop/background/close.
-  Mode switches close/reopen; recording orientation frozen at attach. Full
-  ownership/audio/encoder limits in DECISIONS D-017.
-- P-016 local validation: full test/lint/assemble BUILD SUCCESSFUL (4m12s,
-  then final-source rerun 49s);
-  model task up-to-date, 5 new app state tests ran; XML reports no failures.
-  Other Android modules' tests NO-SOURCE; CI verification pending.
+- Published correction: `cc73c69`, run 44259956383 success. Verified/installed
+  APK: `app/build/ci/44259956383/camera3-debug-apk/app-debug.apk`, 62,251,997
+  bytes, SHA256 `33430BEB11A683E0944002CC2CD608E7AF358F7AE780085F007C4A80F0768F1E`;
+  v2 signature/package passed; CI reports 12 model + 5 app tests, 0 failures,
+  lint 0 errors/17 warnings.
+- P-016 is resolved for the reproduced startup path. Retest log under
+  `app/build/ci/device-testing/p016-retest/` shows valid Surface attachment,
+  camera open/configure, Photo↔Video, ID 0↔1 and background/relaunch sequencing.
+- RAW/DNG (D-016): log-confirmed JPEG+DNG save completion on IDs 0 and 1. DNG
+  files were not pulled/opened, so validity, metadata and rotation remain open.
+- Standard Video (D-017): configured 1920×1080 session; user reports FHD/30
+  recording works. MP4 track/orientation/cadence/A/V checks remain. User reports
+  OIS does not work; current code does not request/verify OIS/EIS (P-017).
+- Current uncommitted tranche (D-019): separate maximum-resolution map discovery,
+  writable pixel-mode and real-output policy, pixel-mode-aware output/session/
+  still request, persisted HI-RES UI with actual-MP labels, and smoothstep Video
+  zoom in logarithmic ratio space at approximately 30 Hz.
+- Current local evidence: final full gate passed in 36s with 14 model + 6 app
+  tests, no failures/errors/skips; lint 0 errors/16 warnings. Local debug APK is
+  62,568,619 bytes, SHA256 `5E01DBFA…942D13`; v2 signature/package check passed.
+- D-020 GPU/MediaCodec/AudioRecord architecture for LUT, defined Log/HDR,
+  bounded RAW frames, stereo and Type-C monitoring is planned only; no UI exposed.
 - Device identity: Android 16 / API 36 with spoofed Samsung props (a35x board,
   SM-S711B model string, mixed fingerprint) consistent with the user's Magisk/
   modified-library report. Do not copy the device serial into docs/exports.
-- Per-lens facts: all four LEVEL_3 with RAW/manual/burst/reprocessing;
+- Per-lens facts from the installed pre-D-019 build: all four LEVEL_3 with RAW/manual/burst/reprocessing;
   baseline JPEGs 4080×3060 / 1920×1440 / 3264×2448 / 3408×2556; preview
   1440×1080; zoom 1.0–8.0 rear / 1.0–4.0 front; extensions only BEAUTY(1) +
   BOKEH(2); NIGHT(4) not advertised; no physical sub-IDs (CAMERA-CAPABILITIES).
 
-## Implemented and device-verified (baseline Photo only)
+## Implemented and device-evidenced
 
 - Install/permission/eligibility gate; preview fitted with grid and mirroring;
   JPEG capture to MediaStore with EXIF orientation/model/ISO; torch; zoom;
   four-lens close-before-reopen switching; background/resume; settings
   persistence; diagnostics screens with real data.
+- P-016 attachment/open/session regression; partial RAW save and standard Video
+  evidence as qualified above. Do not promote these partial checks to full media acceptance.
 
 ## Constraints and limits
 
 - Kotlin/Compose/public Camera2/MVVM/Coroutines; `minSdk = 35`; LEVEL_3 device
   gate (passed honestly on-device). Reported flags remain claims (P-004);
-  RAW and Video are implemented but device-unverified; disabled tabs stay
-  disabled.
+  RAW and Video are implemented with partial device evidence; disabled tabs stay disabled.
+- Existing regular ID 0 JPEG/RAW is 4080×3060 (~12.5 MP), not 50 MP. No installed
+  build has queried maximum-resolution maps or saved a maximum-resolution file.
 - Night tab: Camera2 NIGHT extension (ID 4) is NOT advertised by this HAL —
   keep disabled with that reason unless another real pipeline is built.
 - Video limits (D-017): no pause/resume, no fps/bitrate settings surface, no
   high-speed capture, no per-clip HAL-rejection fallback beyond the session
   probe, mic grant not re-checked mid-session.
+- Stabilization is not implemented/verified. Do not label current FHD/30 as OIS/EIS.
 - AF/AE lock, tap metering, extension sessions: not implemented. RAW device
   checks + deferred UI checks (Logs/share, full-caps detail, clean close
   logs, capability labels) ride with the next device session.
@@ -91,25 +85,9 @@ awaiting push/CI and physical retest. Neither new pipeline is device-verified.
 
 ## Exact next action
 
-1. Local full validation passed; commit corrections/tests + docs using inline
-   OpenCode Agent identity, preserving all other work.
-2. Push `main`, watch CI
-   with `gh run watch --exit-status`, then download/verify the new APK/reports.
-3. Latest ADB attempt: test phone not found. When reconnected and unlocked,
-   install the verified fix APK; fresh CI key may require reinstall/settings
-   reset. Re-grant CAMERA, launch, inspect P-016 attachment/gate/open logs.
-4. Confirm real preview before media tests. User handles on-screen taps and
-   reports results; assistant handles approved ADB install/log/media inspection.
-   Verify foreground before any assistant input, then device-verify:
-   - RAW per D-016 — chip visibility per lens, toggle → close/reopen →
-     3-stream session probe outcome, JPEG+DNG pair saved, DNG opens/rotates,
-     honest failure path. Record observed rawSizes in CAMERA-CAPABILITIES.
-   - Video per D-017 — mode switch reconfigure, record start/stop, MP4 saved
-     to `DCIM/Camera3` and playable, orientation correct, silent without mic
-     grant (Grant row works), background stop still publishes, repeated
-     start/stop without leaks. Record MediaRecorder sizes in
-     CAMERA-CAPABILITIES.
-   - Deferred UI checks (Logs/share, full-caps detail, P-011 close logs,
-     P-012 capability labels).
-   Record results in TESTING/PROGRESS and update the handoff; M4 boxes only
-   close on device evidence.
+1. Review the complete diff, commit/push the maximum-resolution/smooth-zoom
+   tranche and validate its CI artifacts.
+2. Begin D-020 architecture without exposing unfinished controls.
+3. When phone testing is authorized again, first record maximum-resolution maps,
+   session acceptance and saved dimensions; then inspect DNG/MP4, zoom feel,
+   stabilization, RAW throughput, stereo channels and effective USB/IEM routing.

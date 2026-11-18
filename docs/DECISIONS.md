@@ -186,8 +186,8 @@ the older proposals below are retained as design history.
 
 ## D-016: RAW (DNG) still-capture pipeline
 
-- **Status:** implemented engineering choice, 2026-11-18; build-verified locally
-  (11 model tests, all touched modules compile); device verification pending.
+- **Status:** implemented and CI build-verified, 2026-11-18; correction-build
+  logs prove JPEG+DNG save completion on IDs 0/1, but files were not opened.
 - **Problem:** M3 requires real RAW_SENSOR output paired with the existing JPEG
   capture, without inventing capability or mislabeling untested work.
 - **Approach:**
@@ -223,9 +223,9 @@ the older proposals below are retained as design history.
 
 ## D-017: Video recording pipeline (MediaRecorder, first cut)
 
-- **Status:** implemented engineering choice, 2026-11-18; build-verified locally
-  (12 model tests incl. the new video policy test, all touched modules compile);
-  device verification pending.
+- **Status:** implemented and CI build-verified, 2026-11-18; a real 1920×1080
+  session configured and the user reports FHD/30 recording works. MP4 inspection,
+  repeated-stop cleanup and stabilization remain unverified.
 - **Problem:** M4 requires real MP4 recording on the public Camera2 stack with
   honest sizing, orientation and microphone behavior — no fake recorder labels.
 - **Approach:**
@@ -273,9 +273,9 @@ the older proposals below are retained as design history.
 
 ## D-018: Preview-owned rotation and complete session configuration identity
 
-- **Status:** implemented/local build-verified source correction, 2026-11-18;
-  CI/device verification pending. P-016's runtime cause is not yet confirmed
-  by a retest. Local reports: 12 model + 5 app tests, 0 failures; lint 0/16.
+- **Status:** implemented, CI-green and device-retested, 2026-11-18. Run
+  44259956383 passed; the verified APK restored attachment/open/configuration
+  through mode/lens/lifecycle transitions. P-016 is resolved for that reproduction.
 - **Problem:** Video introduced `Application.display` before `setSource` for
   both modes. A non-display context throws; SurfaceView can catch the callback
   exception, leaving no desired camera source and no fatal app crash. Its
@@ -308,6 +308,61 @@ the older proposals below are retained as design history.
 - **Review caveats:** rapid queued RAW preference updates and late surface
   callbacks still need stress tests; the complete-key fix is not a new proof
   of their ordering. Handler serialization and identity-checked detach remain.
+
+## D-019: Public maximum-resolution stills and perceptual video zoom
+
+- **Status:** implemented and locally build-verified, 2026-11-18; no device test
+  authorized for this tranche.
+- **Problem:** the user requested genuine 50 MP JPEG/RAW where available and
+  smoother video zoom. The installed build only queried the default stream map,
+  where ID 0 produced 4080×3060 JPEG/RAW; those outputs cannot be relabeled 50 MP.
+- **Maximum-resolution choice:** query
+  `SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION` separately and require the
+  writable `android.sensor.pixelMode` key plus a real maximum-resolution JPEG.
+  Do not require `ULTRA_HIGH_RESOLUTION_SENSOR`: Android documents that the pixel
+  mode and map may also exist without that capability. RAW+JPEG additionally
+  requires an aspect-compatible RAW_SENSOR from the maximum-resolution map.
+- **Session/request choice:** carry `SensorPixelMode` in `PhotoConfiguration`,
+  declare maximum-resolution use on the JPEG/RAW `OutputConfiguration`s, keep the
+  default-map preview out of the still request, and set
+  `SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION` only on the still request. The full
+  session support query/configuration callback remains the runtime combination gate.
+- **UI/persistence:** persist `high_resolution` off by default, show HI-RES only
+  when policy permits it, display the actual megapixel count and `MAX`, and make
+  sensor pixel mode part of the preview/session identity. No fixed 50 MP label.
+- **Zoom choice:** in Video, interpolate `CONTROL_ZOOM_RATIO` with smoothstep
+  timing in logarithmic ratio space at approximately 30 Hz; a new target cancels
+  the old ramp. Photo retains direct zoom response. Intermediate steps do not
+  produce INFO-log spam.
+- **Verification:** final local full gate passed: 14 model + 6 app tests, no
+  failures/errors/skips; lint 0 errors/16 warnings; debug APK assembled and v2
+  signature/package checked. Actual maximum maps/session acceptance/file
+  dimensions and perceived zoom smoothness remain device-unverified.
+
+## D-020: Advanced GPU/codec and routed-audio pipeline
+
+- **Status:** planned architecture, not implemented or device-verified.
+- **Problem:** LUT, software HDR, genuine Log, RAW-frame storage, stereo capture
+  and live Type-C IEM monitoring cannot be represented honestly by the current
+  MediaRecorder-only path.
+- **Choice:** build an app-owned media pipeline: Camera2 surface → GPU processing
+  for preview/encoder → MediaCodec video → MediaMuxer; AudioRecord PCM feeds the
+  AAC encoder and, when explicitly enabled, an AudioTrack monitor. A bounded
+  RAW_SENSOR ImageReader/storage worker is separate from encoded video and uses
+  explicit queue/drop/stop policy.
+- **Color contract:** each Log/HDR mode must define transfer function, gamut,
+  bit depth, tone mapping and whether a LUT affects preview, recording or both.
+  Encoded profile/color metadata and playback must substantiate the label.
+- **Audio contract:** request stereo input only when supported; verify recorded
+  channel count/content. Monitoring is available only with an actual selected
+  wired/USB sink and must confirm `getRoutedDevice()` while playing. A preferred
+  route is not proof of the effective route; never fall back silently to speaker.
+- **RAW contract:** report actual format, dimensions, bytes/frame, sustained
+  cadence, dropped frames and storage use. At roughly 25 MB for one 12 MP
+  16-bit RAW frame on the current device report, continuous unbounded storage is
+  infeasible; duration/FPS must be bounded by measured throughput.
+- **Consequence:** this is a second tranche with new ownership, synchronization,
+  backpressure and acceptance tests. It does not promote any UI toggle today.
 
 ### New-decision template
 

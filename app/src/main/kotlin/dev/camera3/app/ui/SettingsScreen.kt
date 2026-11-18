@@ -69,7 +69,7 @@ fun SettingsScreen(ui: CameraUiState, model: CameraViewModel, back: () -> Unit,
         item {
             Text("Camera3 ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
-            Text("Android 15+ · Kotlin · Compose · Camera2\nDevelopment build: Photo (JPEG + RAW DNG on lenses that advertise it), Video (MP4, sound when the microphone is granted), automatic focus/exposure, supported torch/zoom. Extension modes are not implemented yet.",
+            Text("Android 15+ · Kotlin · Compose · Camera2\nDevelopment build: Photo (JPEG + RAW DNG, plus maximum-resolution output only when publicly exposed), Video (MP4, sound when the microphone is granted), automatic focus/exposure, supported torch/zoom. Extension modes are not implemented yet.",
                 color = Muted, style = MaterialTheme.typography.bodySmall)
         }
     }

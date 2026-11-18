@@ -1,7 +1,7 @@
 # Development environment and commands
 
-Last updated: 2026-11-18. Windows host; six-module application scaffold exists.
-User requested GitHub Actions as the APK compilation path.
+Last updated: 2026-11-18. Windows host; six-module application and repeatable
+local/CI validation exist. GitHub Actions remains the publication build path.
 
 ## Observed environment
 
@@ -15,21 +15,22 @@ User requested GitHub Actions as the APK compilation path.
 - SDK command-line tools are installed, but `sdkmanager` was not on PATH.
 - Standalone `gradle` and `kotlinc` were not on PATH. This does not prevent a
   properly bootstrapped wrapper/Kotlin Gradle build.
-- Wrapper, Android source and passing model unit tests now exist. Actions
-  produced a verified debug APK; production release signing is not configured.
-  Git is installed; `gh` is not on PATH. Git Credential
-  Manager lists the repository-owner account, without exposing credentials.
+- Wrapper, Android source, model/app unit tests and verified debug APKs exist;
+  production release signing is not configured. Git is installed. `gh` is not
+  globally on PATH, but a verified portable GitHub CLI is available in the
+  approved temporary directory. Git Credential Manager supplies authentication
+  without writing credentials into the project.
 
 Recheck these observations when resuming; do not assume the user's host is
 unchanged.
 
 ## Device connection
 
-The user needs to connect the A35, enable Developer options/USB debugging, and
-accept this computer's debugging authorization. Cable, USB mode and Windows
-driver may matter. The earlier baseline session was device-verified; RAW+Video
-was subsequently installed but fails before camera open (P-016). Latest ADB
-foreground query during correction work found the test phone disconnected.
+The A35 was previously connected and authorized. Baseline Photo passed; the
+verified P-016 correction restored preview/session opening, and RAW/Video gained
+partial runtime evidence. No phone access is authorized during the current
+implementation phase; do not reconnect, install or send device input until the
+user permits another physical test session.
 
 Read-only PowerShell checks:
 
@@ -72,7 +73,8 @@ The wrapper now exists. Run from the workspace or CI:
 .\gradlew.bat connectedDebugAndroidTest
 ```
 
-Actions run 44235722163 successfully built commit `9174a63`. The workflow uses Bash/Ubuntu to run
+The workflow has passed repeatedly, most recently for published correction
+`cc73c69` in run 44259956383. It uses Bash/Ubuntu to run
 `:core:model:test testDebugUnitTest :app:lintDebug :app:assembleDebug` and uploads
 `camera3-debug-apk` plus `verification-reports`. Local SDK location may come from
 `ANDROID_HOME`/`ANDROID_SDK_ROOT` (both re-verified on this host) or ignored
@@ -92,8 +94,8 @@ Actions run 44235722163 successfully built commit `9174a63`. The workflow uses B
   HANDOFF); use Git Credential Manager via process memory, never source/token files.
 - Fresh CI debug signing keys are disposable; updates from different runs may
   require uninstall/reinstall. Stable signing is a separate future decision.
-- Local verified APK: `app/build/ci/44235722163/apk/app-debug.apk` (ignored);
-  downloaded reports and full CI log are siblings under the run directory.
+- Verified APKs/reports are stored by run ID under ignored `app/build/ci/`;
+  [TESTING.md](TESTING.md) is authoritative for paths, hashes and inspection.
 - SDK build tools `36.0.0/apksigner.bat verify --verbose <apk>` and
   `36.0.0/aapt2.exe dump badging <apk>` passed. See TESTING for hash/metadata.
 - CI annotations about deprecated action versions/Node20 and wrapper executable

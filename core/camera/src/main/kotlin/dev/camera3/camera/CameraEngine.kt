@@ -22,6 +22,8 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.Executor
+import kotlin.math.abs
+import kotlin.math.ln
 
 /** What a session is configured to produce; switching it reconfigures the camera. */
 sealed interface StreamPlan {
@@ -82,6 +84,7 @@ class CameraEngine(
         var stopping = false
         var captureId: Long? = null
         var timeout: Runnable? = null
+        var zoomStep: Runnable? = null
         var lastTelemetry = 0L
     }
     private var desired: Source? = null
@@ -166,7 +169,8 @@ class CameraEngine(
         active = run
         val opened = when (val plan = source.plan) {
             is StreamPlan.Photo -> "Photo · JPEG=${plan.photo.jpeg}, preview=${plan.photo.preview}" +
-                (plan.photo.raw?.let { ", RAW=$it" } ?: "")
+                (plan.photo.raw?.let { ", RAW=$it" } ?: "") +
+                (if (plan.photo.sensorPixelMode == SensorPixelMode.MAXIMUM_RESOLUTION) ", maximum-resolution pixel mode" else "")
             is StreamPlan.Video -> "Video · ${plan.video.video}, preview=${plan.video.preview}" +
                 (if (plan.video.mic) ", mic" else ", silent")
         }
@@ -258,8 +262,14 @@ class CameraEngine(
             val outputs = mutableListOf(
                 OutputConfiguration(run.source.surface).apply { setMirrorMode(OutputConfiguration.MIRROR_MODE_AUTO) },
             )
-            if (run.reader != null) outputs += OutputConfiguration(run.reader.surface)
-            if (run.rawReader != null) outputs += OutputConfiguration(run.rawReader.surface)
+            val maximumResolution = (run.source.plan as? StreamPlan.Photo)?.photo?.sensorPixelMode ==
+                SensorPixelMode.MAXIMUM_RESOLUTION
+            if (run.reader != null) outputs += OutputConfiguration(run.reader.surface).apply {
+                if (maximumResolution) addSensorPixelModeUsed(CameraMetadata.SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION)
+            }
+            if (run.rawReader != null) outputs += OutputConfiguration(run.rawReader.surface).apply {
+                if (maximumResolution) addSensorPixelModeUsed(CameraMetadata.SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION)
+            }
             run.recorderSurface?.let { outputs += OutputConfiguration(it) }
             val config = SessionConfiguration(SessionConfiguration.SESSION_REGULAR, outputs, executor,
                 object : CameraCaptureSession.StateCallback() {
@@ -318,6 +328,10 @@ class CameraEngine(
         if (c.flashAvailable) set(CaptureRequest.FLASH_MODE,
             if (controls.torch) CaptureRequest.FLASH_MODE_TORCH else CaptureRequest.FLASH_MODE_OFF)
         if (c.supportsZoomRatio) set(CaptureRequest.CONTROL_ZOOM_RATIO, controls.zoom)
+        if (template == CameraDevice.TEMPLATE_STILL_CAPTURE &&
+            (run.source.plan as? StreamPlan.Photo)?.photo?.sensorPixelMode == SensorPixelMode.MAXIMUM_RESOLUTION) {
+            set(CaptureRequest.SENSOR_PIXEL_MODE, CameraMetadata.SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION)
+        }
         // Prevent an automatic compatibility crop on devices where NONE is explicitly exposed.
         val modes = manager.getCameraCharacteristics(c.id)[CameraCharacteristics.SCALER_AVAILABLE_ROTATE_AND_CROP_MODES]
         if (modes?.contains(CaptureRequest.SCALER_ROTATE_AND_CROP_NONE) == true) {
@@ -344,11 +358,50 @@ class CameraEngine(
     fun setZoom(value: Float) = post {
         val run = active ?: return@post
         if (run.closing || _runtime.value.phase !in CONTROL_PHASES || !run.source.camera.supportsZoomRatio) return@post
+        try {
+            val target = CameraPolicy.validatedZoom(value, run.source.camera)
+            if (run.source.plan is StreamPlan.Video) rampVideoZoom(run, target) else applyZoom(run, target)
+        } catch (error: Exception) {
+            fail(run, "Zoom request rejected", error)
+        }
+    }
+
+    private fun rampVideoZoom(run: Run, target: Float) {
+        run.zoomStep?.let { handler.removeCallbacks(it) }
+        val start = _runtime.value.zoom.coerceAtLeast(run.source.camera.minZoom)
+        if (abs(target - start) < 0.001f) return
+        val durationMs = (150.0 + abs(ln(target.toDouble() / start.toDouble())) * 180.0)
+            .toLong().coerceIn(150L, 500L)
+        val startedAt = SystemClock.elapsedRealtime()
+        lateinit var step: Runnable
+        step = Runnable {
+            if (active !== run || run.closing || _runtime.value.phase !in CONTROL_PHASES) {
+                run.zoomStep = null
+                return@Runnable
+            }
+            val progress = ((SystemClock.elapsedRealtime() - startedAt).toFloat() / durationMs).coerceIn(0f, 1f)
+            val zoom = CameraPolicy.interpolatedZoom(start, target, progress)
+            try {
+                applyZoom(run, zoom, logControl = progress >= 1f)
+                if (progress < 1f) handler.postDelayed(step, 33L) else run.zoomStep = null
+            } catch (error: Exception) {
+                run.zoomStep = null
+                fail(run, "Smooth zoom request rejected", error)
+            }
+        }
+        run.zoomStep = step
+        handler.post(step)
+    }
+
+    private fun applyZoom(run: Run, value: Float, logControl: Boolean = true) {
         val previous = _runtime.value
         try {
             _runtime.value = previous.copy(zoom = CameraPolicy.validatedZoom(value, run.source.camera))
-            updateRepeating(run)
-        } catch (error: Exception) { _runtime.value = previous; fail(run, "Zoom request rejected", error) }
+            updateRepeating(run, logControl)
+        } catch (error: Exception) {
+            _runtime.value = previous
+            throw error
+        }
     }
     fun toggleTorch() = post {
         val run = active ?: return@post
@@ -359,13 +412,13 @@ class CameraEngine(
             updateRepeating(run)
         } catch (error: Exception) { _runtime.value = previous; fail(run, "Torch request rejected", error) }
     }
-    private fun updateRepeating(run: Run) {
+    private fun updateRepeating(run: Run, logControl: Boolean = true) {
         val template = if (run.source.plan is StreamPlan.Video) CameraDevice.TEMPLATE_RECORD else CameraDevice.TEMPLATE_PREVIEW
         val builder = request(run, template).apply { addTarget(run.source.surface) }
         // While recording, the recorder surface must keep receiving frames.
         if (run.recording) builder.addTarget(requireNotNull(run.recorderSurface))
         run.session!!.setRepeatingRequest(builder.build(), telemetry(run), handler)
-        logger.log(LogLevel.INFO, "Controls", "ID ${run.source.camera.id}: zoom=${_runtime.value.zoom}, torch=${_runtime.value.torch}")
+        if (logControl) logger.log(LogLevel.INFO, "Controls", "ID ${run.source.camera.id}: zoom=${_runtime.value.zoom}, torch=${_runtime.value.torch}")
     }
 
     fun capture(displayDegrees: Int) = post {
@@ -434,7 +487,7 @@ class CameraEngine(
             }
             run.session!!.setRepeatingRequest(builder.build(), telemetry(run), handler)
             recorder.start()
-            logger.log(LogLevel.INFO, "Record", "Recording started: epoch=${run.epoch}, mic=${(run.source.plan as StreamPlan.Video).video.mic}")
+            logger.log(LogLevel.INFO, "Record", "Recording started: epoch=${run.epoch}, mic=${run.source.plan.video.mic}")
         } catch (error: Exception) {
             run.recording = false
             fail(run, "Cannot start recording", error)
@@ -608,6 +661,8 @@ class CameraEngine(
     private fun close(run: Run) {
         run.closing = true
         run.timeout?.let { handler.removeCallbacks(it) }
+        run.zoomStep?.let { handler.removeCallbacks(it) }
+        run.zoomStep = null
         if (!blocked) _runtime.value = _runtime.value.copy(phase = CameraPhase.CLOSING, message = "Closing camera")
         // A recording still in flight is stopped and published best-effort; an unstarted
         // pending entry is discarded.

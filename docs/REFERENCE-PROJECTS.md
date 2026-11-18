@@ -43,7 +43,7 @@ user shared as reference material for Camera3.
 - **Gyroflow `.gcsv` sidecar** (both cinema projects): opt-in IMU log per take.
 - **LUT engine design** (PhotonCamera): .cube/.png/.xmp import applied by a
   real-time shader in preview, burst, and saved output — a concrete model for
-  our deferred LUT idea; preview-affecting vs output-affecting must stay
+  the planned D-020 LUT pipeline; preview-affecting vs output-affecting must stay
   declared separately.
 - **Motion Photo vendor adaptation** (PhotonCamera): multi-vendor (incl.
   Samsung) still+clip embedding; a possible M6+ still feature.

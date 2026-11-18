@@ -121,6 +121,29 @@ personal/device identifiers. See
   tests/lint and downloadable debug APK artifacts.
 - CI compilation is not evidence of physical-device camera functionality.
 
+## R-11: Added high-resolution, processing and audio scope
+
+The user added the following requirements on 2026-11-18:
+
+- Capability-gated high-resolution still capture, including a 50 MP label only
+  when a real public maximum-resolution output of that size is exposed. Never
+  upscale or relabel the existing approximately 12 MP stream.
+- High-resolution RAW+JPEG only when the maximum-resolution stream map exposes a
+  compatible real RAW_SENSOR output; an ordinary 12 MP DNG is not 50 MP RAW.
+- Smooth video zoom.
+- LUT preview/recording, software HDR and a genuine documented Log pipeline;
+  never call an ordinary SDR transform "Log" or use a LUT toggle as proof.
+- A bounded RAW sensor-frame recording/storage mode with honest throughput and
+  dropped-frame reporting; do not promise unbounded RAW video.
+- Stereo audio recording and live monitoring through Type-C earphones/IEM, only
+  when the selected input/output routes and channel configuration are real and
+  verified. Monitoring must not silently route to the speaker.
+
+The user requested no phone access during the current implementation phase.
+Source/build work may proceed, but maximum-resolution availability, zoom feel,
+RAW throughput, stereo channels and USB routing remain device-unverified until
+the user later permits a physical test session.
+
 ## Non-goals unless explicitly added
 
 - Modifying Magisk modules, camera libraries, bootloader state or firmware.

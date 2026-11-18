@@ -86,4 +86,38 @@ class CameraPolicyTest {
         assertNull(CameraPolicy.videoConfiguration(
             camera.copy(videoSizes = listOf(Dimensions(640, 480))), mic = false))
     }
+
+    @Test fun maximumResolutionNeedsRealPixelModeOutputs() {
+        val full = Dimensions(8160, 6120)
+        val maximumRaw = Dimensions(8160, 6120)
+        val capable = camera().copy(
+            capabilities = setOf("RAW", "ULTRA_HIGH_RESOLUTION_SENSOR"),
+            requestKeys = setOf("android.sensor.pixelMode"),
+            maximumResolutionJpegSizes = listOf(full),
+            maximumResolutionRawSizes = listOf(maximumRaw),
+        )
+        val jpeg = CameraPolicy.configuration(capable, rawEnabled = false, highResolution = true)!!
+        assertEquals(full, jpeg.jpeg)
+        assertNull(jpeg.raw)
+        assertEquals(SensorPixelMode.MAXIMUM_RESOLUTION, jpeg.sensorPixelMode)
+        assertEquals(maximumRaw, CameraPolicy.configuration(capable, true, true)?.raw)
+        // Android also permits SENSOR_PIXEL_MODE without the ultra-high-resolution
+        // capability; the real key and maximum-resolution map remain authoritative.
+        assertNotNull(CameraPolicy.configuration(
+            capable.copy(capabilities = setOf("RAW")), false, true,
+        ))
+        assertNull(CameraPolicy.configuration(capable.copy(requestKeys = emptySet()), false, true))
+        assertNull(CameraPolicy.configuration(capable.copy(maximumResolutionRawSizes = emptyList()), true, true))
+        assertNull(CameraPolicy.configuration(
+            capable.copy(maximumResolutionRawSizes = listOf(Dimensions(8160, 4590))), true, true,
+        ))
+    }
+
+    @Test fun videoZoomInterpolationIsBoundedAndPerceptual() {
+        assertEquals(1f, CameraPolicy.interpolatedZoom(1f, 8f, 0f), 0.0001f)
+        assertEquals(8f, CameraPolicy.interpolatedZoom(1f, 8f, 1f), 0.0001f)
+        assertEquals(kotlin.math.sqrt(8f), CameraPolicy.interpolatedZoom(1f, 8f, .5f), 0.0001f)
+        assertEquals(1f, CameraPolicy.interpolatedZoom(1f, 8f, -1f), 0.0001f)
+        assertEquals(8f, CameraPolicy.interpolatedZoom(1f, 8f, 2f), 0.0001f)
+    }
 }

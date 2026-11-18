@@ -23,6 +23,11 @@ conversation. They inform plans; they do not verify the user's physical phone.
 | [Multi-camera](https://developer.android.com/media/camera/camera2/multi-camera) | Logical/physical topology and valid combined outputs matter; OEM privilege is not public access |
 | [CameraConstrainedHighSpeedCaptureSession](https://developer.android.com/reference/android/hardware/camera2/CameraConstrainedHighSpeedCaptureSession) | High-speed sessions have explicit size/range/request-list/surface restrictions |
 | [DngCreator](https://developer.android.com/reference/android/hardware/camera2/DngCreator) | RAW_SENSOR data and corresponding result/characteristics produce DNG; close resources |
+| [Maximum-resolution stream map](https://developer.android.com/reference/android/hardware/camera2/CameraCharacteristics#SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION) | Query maximum-resolution outputs separately; the map may exist without the ultra-high-resolution capability flag |
+| [SENSOR_PIXEL_MODE](https://developer.android.com/reference/android/hardware/camera2/CaptureRequest#SENSOR_PIXEL_MODE) | Select maximum-resolution sensor mode on the still request only when the key is writable |
+| [OutputConfiguration.addSensorPixelModeUsed](https://developer.android.com/reference/android/hardware/camera2/params/OutputConfiguration#addSensorPixelModeUsed(int)) | Declare which sensor pixel mode can feed an ambiguous output configuration |
+| [AudioRouting.setPreferredDevice](https://developer.android.com/reference/android/media/AudioRouting#setPreferredDevice(android.media.AudioDeviceInfo)) | A preferred device is a routing request, not proof of the effective AudioRecord/AudioTrack route |
+| [AudioRecord.Builder.setAudioFormat](https://developer.android.com/reference/android/media/AudioRecord.Builder#setAudioFormat(android.media.AudioFormat)) | Request explicit PCM/channel configuration, then verify actual initialization and recorded channels |
 | [Compose system insets](https://developer.android.com/develop/ui/compose/system/insets) | Edge-to-edge does not remove the need to protect controls from system bars/cutouts |
 
 The official docs link sample Camera2 extensions/video projects. Those sample

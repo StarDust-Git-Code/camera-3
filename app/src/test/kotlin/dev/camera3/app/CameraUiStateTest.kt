@@ -6,6 +6,7 @@ import dev.camera3.model.Dimensions
 import dev.camera3.model.HardwareLevel
 import dev.camera3.model.LensFacing
 import dev.camera3.model.PhotoPreferences
+import dev.camera3.model.SensorPixelMode
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -114,5 +115,26 @@ class CameraUiStateTest {
         assertTrue(withMic.mic)
         // A preview-size-only key would miss the recorder's audio configuration.
         assertNotEquals(silent, withMic)
+    }
+
+    @Test fun highResolutionChangeRequiresDifferentPhotoConfigurationWithSamePreviewSize() {
+        val full = Dimensions(8160, 6120)
+        val descriptor = camera().copy(
+            capabilities = setOf("RAW", "ULTRA_HIGH_RESOLUTION_SENSOR"),
+            requestKeys = setOf("android.sensor.pixelMode"),
+            maximumResolutionJpegSizes = listOf(full),
+            maximumResolutionRawSizes = listOf(full),
+        )
+        val standardState = state(descriptor)
+        val maximumState = standardState.copy(
+            preferences = PhotoPreferences(highResolution = true),
+        )
+        val standard = standardState.configuration!!
+        val maximum = maximumState.configuration!!
+        assertEquals(standard.preview, maximum.preview)
+        assertEquals(SensorPixelMode.DEFAULT, standard.sensorPixelMode)
+        assertEquals(SensorPixelMode.MAXIMUM_RESOLUTION, maximum.sensorPixelMode)
+        assertEquals(full, maximum.jpeg)
+        assertNotEquals(standard, maximum)
     }
 }

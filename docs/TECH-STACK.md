@@ -1,7 +1,7 @@
 # Technology stack
 
-Last updated: 2026-11-18. Initial scaffold/dependency pins are build-verified in
-Actions run 44235722163. Recording/RAW/storage proposals below remain future work.
+Last updated: 2026-11-18. Dependency pins and the Photo/RAW/MediaRecorder source
+are build-verified. The app-owned GPU/MediaCodec/AudioRecord stack remains planned.
 
 ## Initial pinned build
 
@@ -49,17 +49,19 @@ are intentional in this project.
 | Dependency wiring | Explicit constructor injection initially | Small, understandable object graph without unnecessary framework overhead |
 | Preview | SurfaceView through Compose AndroidView interop | Direct camera surface, low-copy preview; verify layering/orientation/HDR behavior |
 | Photo output | ImageReader, JPEG and RAW_SENSOR, DngCreator, ExifInterface | Actual sensor output and corresponding metadata |
-| Video | MediaCodec surface encoder and MediaMuxer | Codec/profile control, HDR metadata and output inspection |
-| Audio | AudioRecord plus AAC encoding | Real microphone samples, audio meters and explicit timestamps |
+| Baseline video | MediaRecorder | Implemented first cut for bounded FHD/30 MP4; output acceptance remains partial |
+| Advanced video | GPU surface processing, MediaCodec and MediaMuxer | Planned codec/profile control, LUT/Log/HDR and output inspection |
+| Advanced audio | AudioRecord, AAC encoding and routed AudioTrack monitor | Planned stereo verification, explicit timestamps and Type-C IEM monitoring |
 | Storage | MediaStore and Storage Access Framework | Scoped storage and user-selected destinations without broad storage access |
 | Settings | Jetpack DataStore | Persisted typed preferences and safe schema evolution |
 | Log storage | Bounded asynchronous rotating app-private files + in-memory viewer buffer | No unbounded memory growth or main-thread file writes |
 | Sharing | Android Sharesheet and FileProvider | User-controlled export with temporary URI grants |
 | Tests | JVM unit tests, Android instrumentation, Compose UI tests, lint | Logic, platform interactions and visual/semantic checks |
 
-Implemented subset: SurfaceView, ViewModel/StateFlow, JPEG ImageReader/MediaStore,
-DataStore, asynchronous bounded logging and FileProvider sharing. RAW/DNG,
-recording/audio, SAF and advanced test coverage are not implemented yet.
+Implemented subset: SurfaceView, ViewModel/StateFlow, JPEG/RAW ImageReaders,
+DngCreator/MediaStore, first-cut MediaRecorder with optional microphone audio,
+DataStore, asynchronous bounded logging and FileProvider sharing. SAF, app-owned
+GPU/codec/audio processing and instrumentation/advanced device tests remain open.
 
 ## Observed host tooling
 
@@ -71,7 +73,8 @@ recording/audio, SAF and advanced test coverage are not implemented yet.
 - SDK command-line tools are installed under the SDK despite sdkmanager not being
   directly on PATH. A Gradle distribution cache exists; it is not a selected
   project Gradle version.
-- No Android source/build files were present at inspection.
+- The workspace was empty at initial inspection; the current six-module project
+  and its build evidence supersede that historical starting point.
 
 ## Version policy
 

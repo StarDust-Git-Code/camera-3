@@ -19,6 +19,7 @@ class CameraDiscovery(context: Context, private val logger: AppLogger) {
             try {
                 val c = manager.getCameraCharacteristics(id)
                 val map = c[CC.SCALER_STREAM_CONFIGURATION_MAP]
+                val maximumResolutionMap = c[CC.SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION]
                 val caps = c[CC.REQUEST_AVAILABLE_CAPABILITIES]?.toSet().orEmpty()
                 val zoom = c[CC.CONTROL_ZOOM_RATIO_RANGE]
                 val keys = c.availableCaptureRequestKeys.map { it.name }.toSet()
@@ -32,6 +33,20 @@ class CameraDiscovery(context: Context, private val logger: AppLogger) {
                         logger.log(LogLevel.WARNING, "Discovery", "MediaRecorder size query failed for ID $id", error)
                         emptyList()
                     }
+                val maximumResolutionJpegSizes = try {
+                    maximumResolutionMap?.getOutputSizes(ImageFormat.JPEG)
+                        ?.map { Dimensions(it.width, it.height) }.orEmpty()
+                } catch (error: Exception) {
+                    logger.log(LogLevel.WARNING, "Discovery", "Maximum-resolution JPEG size query failed for ID $id", error)
+                    emptyList()
+                }
+                val maximumResolutionRawSizes = try {
+                    maximumResolutionMap?.getOutputSizes(ImageFormat.RAW_SENSOR)
+                        ?.map { Dimensions(it.width, it.height) }.orEmpty()
+                } catch (error: Exception) {
+                    logger.log(LogLevel.WARNING, "Discovery", "Maximum-resolution RAW size query failed for ID $id", error)
+                    emptyList()
+                }
                 val descriptor = CameraDescriptor(
                     id = id,
                     facing = when (c[CC.LENS_FACING]) {
@@ -53,6 +68,8 @@ class CameraDiscovery(context: Context, private val logger: AppLogger) {
                     previewSizes = map?.getOutputSizes(SurfaceHolder::class.java)?.map { Dimensions(it.width, it.height) }.orEmpty(),
                     rawSizes = rawSizes,
                     videoSizes = videoSizes,
+                    maximumResolutionJpegSizes = maximumResolutionJpegSizes,
+                    maximumResolutionRawSizes = maximumResolutionRawSizes,
                     physicalIds = c.physicalCameraIds,
                     capabilities = caps.map { capabilityName(it) }.toSet(),
                     requestKeys = keys,
@@ -66,6 +83,8 @@ class CameraDiscovery(context: Context, private val logger: AppLogger) {
                         catch (error: Exception) { logger.log(LogLevel.WARNING, "Discovery", "Extension query failed for ID $id", error); emptySet() },
                     details = linkedMapOf(
                         "Sensor pixels" to (c[CC.SENSOR_INFO_PIXEL_ARRAY_SIZE]?.toString() ?: "Not reported"),
+                        "Maximum-resolution sensor pixels" to
+                            (c[CC.SENSOR_INFO_PIXEL_ARRAY_SIZE_MAXIMUM_RESOLUTION]?.toString() ?: "Not reported"),
                         "Sensor size (mm)" to (c[CC.SENSOR_INFO_PHYSICAL_SIZE]?.toString() ?: "Not reported"),
                         "Focal lengths (mm)" to (c[CC.LENS_INFO_AVAILABLE_FOCAL_LENGTHS]?.joinToString() ?: "Not reported"),
                         "ISO range" to (c[CC.SENSOR_INFO_SENSITIVITY_RANGE]?.toString() ?: "Not reported"),
@@ -77,10 +96,14 @@ class CameraDiscovery(context: Context, private val logger: AppLogger) {
                         "Dynamic range profile IDs" to (c[CC.REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES]?.supportedProfiles?.joinToString() ?: "Not reported"),
                         "High-speed sizes" to (map?.highSpeedVideoSizes?.joinToString() ?: "Not reported"),
                         "RAW output sizes" to (rawSizes.takeIf { it.isNotEmpty() }?.joinToString() ?: "Not reported"),
+                        "Maximum-resolution JPEG sizes" to
+                            (maximumResolutionJpegSizes.takeIf { it.isNotEmpty() }?.joinToString() ?: "Not reported"),
+                        "Maximum-resolution RAW sizes" to
+                            (maximumResolutionRawSizes.takeIf { it.isNotEmpty() }?.joinToString() ?: "Not reported"),
                         "MediaRecorder sizes" to (videoSizes.takeIf { it.isNotEmpty() }?.joinToString() ?: "Not reported"),
                     ),
                 )
-                logger.log(LogLevel.INFO, "Discovery", "ID $id: ${descriptor.facing}, ${descriptor.level}, JPEG sizes=${descriptor.jpegSizes.size}, RAW sizes=${descriptor.rawSizes.size}, video sizes=${descriptor.videoSizes.size}, capabilities=${descriptor.capabilities}")
+                logger.log(LogLevel.INFO, "Discovery", "ID $id: ${descriptor.facing}, ${descriptor.level}, JPEG sizes=${descriptor.jpegSizes.size}, RAW sizes=${descriptor.rawSizes.size}, maximum JPEG sizes=${descriptor.maximumResolutionJpegSizes.size}, maximum RAW sizes=${descriptor.maximumResolutionRawSizes.size}, video sizes=${descriptor.videoSizes.size}, capabilities=${descriptor.capabilities}")
                 descriptor
             } catch (error: Exception) {
                 logger.log(LogLevel.ERROR, "Discovery", "Cannot inspect camera ID $id", error)

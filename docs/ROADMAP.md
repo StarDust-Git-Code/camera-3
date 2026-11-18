@@ -1,7 +1,8 @@
 # Incremental roadmap
 
-Last updated: 2026-11-18. M1/M2 baseline code is build-verified; device checks are pending. Checkboxes
-represent exit criteria, not optimistic completion.
+Last updated: 2026-11-18. Baseline Photo and P-016 correction have device
+evidence; RAW/Video evidence is partial. Maximum-resolution/smooth-zoom source is
+locally build-verified only. Checkboxes represent exit criteria, not optimism.
 
 ## M0: Inspect and establish continuity
 
@@ -21,10 +22,10 @@ No app implementation is implied by M0.
 - [x] Pin compatible AGP, Gradle, Kotlin and Compose versions (D-013; CI verified).
 - [x] Create wrapper/build files and modules with `minSdk = 35`.
 - [x] Add camera permissions and minimal native navigation/theme.
-- [x] Implement discovery and the LEVEL_3 device gate (not yet device-verified).
-- [x] Implement initial capability diagnostics and lifecycle logs (runtime pending).
+- [x] Implement and device-verify discovery and the LEVEL_3 device gate.
+- [x] Implement initial capability diagnostics and lifecycle logs.
 - [x] Build debug APK and run JVM checks (run 44235722163; nine model tests passed).
-- [ ] Install/test on the Samsung phone when connected.
+- [x] Install/test eligibility, preview and baseline capture on the Samsung phone.
 
 Exit: a buildable app, reliable permission/eligibility states and an actual device
 capability report. Scaffolding/unit work can proceed without the phone; the device
@@ -43,9 +44,10 @@ Preserve failure evidence before adding advanced stream combinations.
 
 M2 source now includes close-before-reopen Camera2 ownership, fitted SurfaceView,
 JPEG request/orientation, IO MediaStore saving and last-photo gallery access.
-Supported automatic AF/AE/AWB, torch, zoom and camera switching exist. M2 boxes
-remain open until physical lifecycle/orientation/capture tests substantiate
-the behavior; tap metering and capture AF/AE locking remain unimplemented.
+Supported automatic AF/AE/AWB, torch, zoom and camera switching exist; baseline
+preview/capture/orientation/lifecycle behavior has device evidence. Broad M2 boxes
+remain open for tap metering, capture AF/AE locking, contention/error recovery and
+the remaining stress cases rather than being split into optimistic partial passes.
 
 ## M3: Capability-aware advanced stills/lenses
 
@@ -64,13 +66,18 @@ Exit: every enabled still control affects actual capture; files and capture
 results substantiate support. No extension support means those modes remain
 unavailable, not substituted by ordinary Photo.
 
-RAW/DNG pipeline status (2026-11-18): implemented and build-verified locally —
+RAW/DNG pipeline status (2026-11-18): implemented and CI build-verified —
 RAW_SENSOR discovery + `supportsRaw`, aspect-matched pairing policy with new
 model tests (11 passing), dual-surface still capture with result/image pairing,
 `DngCreator` (metadata bound at construction, EXIF orientation) and
-`PhotoStore.saveDng` to `DCIM/Camera3` (D-016). Device verification — chip
-visibility per lens, session probe outcome for the 3-stream combination, real
-DNG file + rotation — is pending the next install; the boxes above stay open.
+`PhotoStore.saveDng` to `DCIM/Camera3` (D-016). Correction-build logs now prove
+successful three-stream configuration plus JPEG/DNG save completion on IDs 0/1.
+The files were not pulled/opened, so validity, metadata and rotation remain open.
+
+Maximum-resolution still status: separate map/key discovery, pixel-mode-aware
+policy/session/request handling, persisted HI-RES gating and actual-MP labeling
+are locally build-verified (D-019). No installed build has queried the maps;
+availability, actual 50 MP output and maximum-resolution RAW remain unknown.
 
 ## M4: Robust standard Video
 
@@ -83,16 +90,16 @@ DNG file + rotation — is pending the next install; the boxes above stay open.
 Exit: playable, correctly oriented recording with validated A/V synchronization
 and no leaked camera/audio/codec resources in repeated tests.
 
-Video recording status (2026-11-18): first cut implemented and build-verified
-locally — MediaRecorder sizes in discovery, bounded 16:9 ≤1080p video policy
+Video recording status (2026-11-18): first cut implemented and CI build-verified
+— MediaRecorder sizes in discovery, bounded 16:9 ≤1080p video policy
 with aspect-matched preview (new model test; 12 passing), plan-driven session
 reconfiguration (preview + recorder surface, TEMPLATE_RECORD), recorder
 prepared before `openCamera` with a pending MediaStore fd, shared
 start/stop/finalize used by both user stop and close (publish if frames were
 recorded, discard otherwise), silent mode without `RECORD_AUDIO`, REC timer
-UI (D-017). Device verification — real playable MP4, orientation, A/V sync,
-repeated start/stop without leaks — is pending the next install; the boxes
-above stay open.
+UI (D-017). The correction build configured a real 1920×1080 Video session and
+the user reports FHD/30 recording works. MP4 tracks/cadence/orientation/A/V sync,
+repeated stop and cleanup were not independently inspected; boxes stay open.
 
 ## M5: Pro Video, HDR and high FPS
 
@@ -101,6 +108,11 @@ above stay open.
 - [ ] Valid high-speed size/FPS sessions and generated burst requests.
 - [ ] Supported stabilization/physical/concurrent camera configurations.
 - [ ] Exclude incompatible combinations and verify actual output cadence/profile.
+- [ ] Add a Camera2→GPU→MediaCodec/MediaMuxer path for LUT, defined Log and
+  software HDR rather than mislabeling MediaRecorder SDR.
+- [ ] Add bounded RAW-frame storage with measured backpressure/drop reporting.
+- [ ] Add verified stereo AudioRecord capture and Type-C IEM AudioTrack
+  monitoring with effective-route checks and no silent speaker fallback.
 
 Exit: enabled advanced recording features have file/result evidence. A selected
 toggle, advertised flag or encoded nominal frame rate alone is insufficient.

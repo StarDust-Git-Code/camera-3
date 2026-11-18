@@ -1,11 +1,10 @@
 # Testing and evidence
 
-Last updated: 2026-11-18. P-016 correction local build passed: 12 model + 5 app
-state tests / 0 failures; lint 0 errors / 16 warnings; debug APK assembled.
-Correction CI/device checks pending. The earlier RAW+Video APK is installed,
-but camera-open/preview and functional device verification are
-**BLOCKED by P-016**. The earlier Photo baseline is historical, not verification
-of the latest build.
+Last updated: 2026-11-18. P-016 correction `cc73c69` is CI-green and its verified
+APK restored preview/session opening on-device. Logs show JPEG+DNG save completion
+on IDs 0/1; the user reports FHD/30 recording works and OIS does not. The current
+maximum-resolution/smooth-zoom source is locally tested only; no phone access is
+authorized for this implementation phase.
 
 ## Evidence rules
 
@@ -70,6 +69,8 @@ name/version if needed; do not execute root changes to investigate it.
 | D-18 | Lifecycle | Background/resume, screen-off behavior, camera contention, rapid repeated operations |
 | D-19 | UI | Actual portrait/insets/cutout/navigation, large text, accessibility and reference review |
 | D-20 | Diagnostics | Actual capabilities, log filters/live viewer and exported report opened by another app |
+| D-21 | Maximum-resolution still | Separate map/key exposed, complete pixel-mode session accepted, saved JPEG/RAW dimensions and truthful MP label; baseline upscaling/relabeling forbidden |
+| D-22 | Advanced color/RAW/audio | Defined LUT/Log/HDR output, bounded RAW throughput/drop evidence, stereo channel verification and effective wired/USB monitoring route |
 
 Unavailable features are recorded as unavailable with query/config evidence, not
 counted as passing implementations. A failure must be repaired or explicitly
@@ -168,14 +169,21 @@ work. DOC-04: platform/device constraints agree across canonical files.
 | 2026-11-18 | P-016 correction local test/lint/APK build | Passed, local build-verified | `.\gradlew.bat :core:model:test testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace --console=plain`: BUILD SUCCESSFUL in 4m12s. XML: 12 model tests (task UP-TO-DATE), 5 new app state tests executed, 0 failures/errors/skips; lint 0 errors/16 warnings. APK at `app/build/outputs/apk/debug/app-debug.apk`; other Android-module tests NO-SOURCE. CI/physical retest pending |
 | 2026-11-18 | P-016 final-source revalidation | Passed, local build-verified | Same full command BUILD SUCCESSFUL in 49s after UI busy-state alignment; app tests executed again, model task UP-TO-DATE; no physical retest |
 | 2026-11-18 | P-016 prepublication checks | Passed, host-observed | 21 Markdown files / 59 local links / 0 issues, HANDOFF 115 lines, `git diff --check` clean; final XML reports 12 model + 5 app tests, no failures, lint 0 errors / 16 warnings |
+| 2026-11-18 | P-016 correction push/CI start | Pushed; CI in progress | `cc73c69ae7383c979a6cee2c6682fd66ae64957d` pushed to `main`; [run 44259956383](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44259956383) in progress, `gh run watch --exit-status` active. No correction APK downloaded/installed yet |
+| 2026-11-18 | P-016 correction CI/artifact verification | Passed, host-observed | Run 44259956383 completed successfully. Downloaded APK is 62,251,997 bytes, SHA256 `33430BEB11A683E0944002CC2CD608E7AF358F7AE780085F007C4A80F0768F1E`; v2 signature and package/API identity passed. CI reports: 12 model + 5 app tests, 0 failures; lint 0 errors/17 warnings |
+| 2026-11-18 | P-016 correction install/retest | Passed for preview/session regression | Verified correction APK installed. `p016-retest/fix-startup-camera-0.log` records valid Surface attachment, `Opening ID 0`, configured Photo/Video sessions, Photo↔Video transitions, lens switch and background close/relaunch; black paused state did not recur. P-016 is device-resolved for this reproduction |
+| 2026-11-18 | RAW+JPEG correction-build probe | Partial device pass | Log records ID 0 JPEG 4080×3060 + RAW 4080×3060 and ID 1 JPEG 1920×1440 + RAW 4128×3096 sessions, followed by JPEG and DNG save completion for each. Files were not pulled/opened; DNG validity, metadata and rotation remain unverified |
+| 2026-11-18 | Standard Video correction-build probe | Partial, user-reported | Log proves ID 0 1920×1080 silent Video session configuration; user reports FHD/30 recording works but OIS does not. MP4 tracks, orientation, cadence, A/V sync and stabilization request/result state were not independently inspected |
+| 2026-11-18 | Maximum-resolution/smooth-zoom targeted tests | Passed, local build-verified | 14 model + 6 app state tests passed after added policy/configuration-identity coverage; camera/app Kotlin compilation passed. Synthetic tests are not hardware/map/session/file or perceptual zoom evidence |
+| 2026-11-18 | Maximum-resolution/smooth-zoom final local gate | Passed, local build-verified | Full command `:core:model:test testDebugUnitTest :app:lintDebug :app:assembleDebug` BUILD SUCCESSFUL in 36s. XML: 14 model + 6 app tests, 0 failures/errors/skips; lint 0 errors/16 warnings. Local APK 62,568,619 bytes, SHA256 `5E01DBFA7AFFBE77D3B3D89C4FAAB0948BB4B6ED173768FCF98637F362942D13`; v2 signature and package identity checked. No phone test |
+| 2026-11-18 | Maximum-resolution tranche documentation/diff check | Passed, host-observed | 21 Markdown files, 59 local links / 0 broken targets, 93-line HANDOFF; `git diff --check` clean before publication review |
 
 Historical CI test reports cover only `:core:model:test` (nine initially,
-12 in RAW+Video CI); their Android `testDebugUnitTest` tasks were `NO-SOURCE`.
-P-016 adds five passing local app state tests (mode availability and configuration
-equality), not Camera2, media, DataStore, logging, Compose or instrumentation
-tests. H-04 through H-08 remain unverified; advanced physical
-checks D-04/05/09 through D-17 remain untested or blocked by P-016. The earlier
-manual D-series passes do not verify the latest APK or create regression tests.
+12 in RAW+Video CI). P-016 added five CI-green app state tests; the current local
+tranche adds a sixth. These do not test Camera2, media, DataStore, logging,
+Compose or instrumentation. H-04 through H-08 remain incomplete; advanced
+physical checks remain partial or untested. The manual D-series passes do not
+create automated regression coverage.
 
 ## Verified APK builds and reports
 
@@ -184,7 +192,22 @@ implies device verification beyond what the execution record states. Fresh CI
 keys can require uninstall/reinstall between builds; preserve needed app data
 first. All generated downloads are ignored by Git.
 
-### RAW+Video build (installed; device verification BLOCKED)
+### P-016 correction build (installed; regression resolved, media partial)
+
+- Run: [44259956383](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44259956383),
+  source commit `cc73c69`; workflow completed successfully.
+- Local APK: `app/build/ci/44259956383/camera3-debug-apk/app-debug.apk`;
+  62,251,997 bytes, SHA256
+  `33430BEB11A683E0944002CC2CD608E7AF358F7AE780085F007C4A80F0768F1E`.
+- Build-tools verification: v2 signature passed; `aapt2` confirmed Camera3 /
+  `dev.camera3.app` / `0.1.0-dev` / targetSDK36.
+- CI reports under `app/build/ci/44259956383/verification-reports/`: 12 model
+  + 5 app tests, no failures; lint 0 errors/17 warnings.
+- Installed and device-retested. Preview/session opening and Photo↔Video
+  reconfiguration passed; JPEG+DNG save completion has log evidence on IDs 0/1.
+  Saved DNG/MP4 inspection and complete media acceptance remain open.
+
+### RAW+Video build (historical P-016 reproduction)
 
 - Run: [44251120868](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44251120868),
   source commit `409c5d9` (RAW + Video). CI-success conclusion and both artifact
@@ -201,9 +224,8 @@ first. All generated downloads are ignored by Git.
   This is CI artifact inspection, not a new build or physical-camera test.
 - **Installed** via the authorized reinstall recorded above; both camera and
   microphone permissions are granted in the saved device report.
-- **Device verification BLOCKED by P-016:** not verified functional and **not a
-  current working baseline**. Restore and verify real preview before RAW/DNG,
-  playable MP4/finalization/orientation and audio/silent-mode acceptance checks.
+- This installed build reproduced P-016 and is not the current baseline. The
+  correction build above resolved that startup reproduction.
 
 ### RAW build (historical; superseded install candidate)
 

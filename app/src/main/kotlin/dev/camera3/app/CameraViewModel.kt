@@ -35,12 +35,16 @@ data class CameraUiState(
     val selected get() = cameras.firstOrNull { it.id == selectedId }
     val rawEnabled get() = preferences.raw
     val configuration get() = selected?.let { camera ->
-        if (mode == CameraMode.PHOTO) CameraPolicy.configuration(camera, rawEnabled) else null
+        if (mode == CameraMode.PHOTO) CameraPolicy.configuration(
+            camera, rawEnabled, preferences.highResolution,
+        ) else null
     }
     val videoConfiguration get() = selected?.let { camera ->
         if (mode == CameraMode.VIDEO) CameraPolicy.videoConfiguration(camera, micGranted) else null
     }
-    val photoUsable get() = selected?.let { CameraPolicy.configuration(it, rawEnabled) } != null
+    val photoUsable get() = selected?.let {
+        CameraPolicy.configuration(it, rawEnabled, preferences.highResolution)
+    } != null
     val videoUsable get() = selected?.let { CameraPolicy.videoConfiguration(it, micGranted) } != null
     val busy get() = runtime.phase == CameraPhase.CAPTURING || runtime.phase == CameraPhase.RECORDING
 }
@@ -80,7 +84,9 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             _ui.update { it.copy(discovering = true, error = null) }
             try {
                 val cameras = services.discovery.discover()
-                val selected = CameraPolicy.initialCamera(cameras)
+                val preferences = _ui.value.preferences
+                val selected = CameraPolicy.initialCamera(cameras, preferences.raw, preferences.highResolution)
+                    ?: CameraPolicy.initialCamera(cameras)
                 _ui.update { it.copy(cameras = cameras, selectedId = selected?.id, discovering = false) }
                 services.logger.log(LogLevel.DEBUG, "Discovery", "P-016 viewModel.discover count=${cameras.size} selectedId=${selected?.id}")
                 services.logger.log(LogLevel.INFO, "Eligibility", "LEVEL_3 device eligible=${CameraPolicy.isEligible(cameras)}, baselineCamera=${selected?.id}")
@@ -96,7 +102,9 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         if (!state.eligible || state.busy) return
         val camera = state.cameras.firstOrNull { it.id == id } ?: return
         val usable = when (state.mode) {
-            CameraMode.PHOTO -> CameraPolicy.configuration(camera, state.preferences.raw)
+            CameraMode.PHOTO -> CameraPolicy.configuration(
+                camera, state.preferences.raw, state.preferences.highResolution,
+            )
             CameraMode.VIDEO -> CameraPolicy.videoConfiguration(camera, state.micGranted)
         } != null
         if (usable) _ui.update { it.copy(selectedId = id) }
@@ -105,7 +113,9 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         val state = _ui.value
         val choices = state.cameras.filter { camera ->
             when (state.mode) {
-                CameraMode.PHOTO -> CameraPolicy.configuration(camera, state.preferences.raw) != null
+                CameraMode.PHOTO -> CameraPolicy.configuration(
+                    camera, state.preferences.raw, state.preferences.highResolution,
+                ) != null
                 CameraMode.VIDEO -> CameraPolicy.videoConfiguration(camera, state.micGranted) != null
             }
         }
@@ -157,7 +167,47 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     fun retry() { if (_ui.value.cameras.isEmpty()) discover() else engine.retry() }
     fun setGrid(value: Boolean) = settingAction { services.settings.setGrid(value) }
     fun setQuality(value: Int) = settingAction { services.settings.setJpegQuality(value) }
-    fun setRaw(value: Boolean) = settingAction { services.settings.setRaw(value) }
+    fun setRaw(value: Boolean) {
+        val state = _ui.value
+        val camera = state.selected
+        if (value && camera != null && CameraPolicy.configuration(
+                camera, rawEnabled = true, highResolution = state.preferences.highResolution,
+            ) == null) {
+            _ui.update { it.copy(error = if (state.preferences.highResolution) {
+                "This lens does not expose a maximum-resolution RAW stream compatible with high-resolution JPEG."
+            } else "RAW is unavailable for the active photo configuration.") }
+            return
+        }
+        settingAction { services.settings.setRaw(value) }
+    }
+    fun setHighResolution(value: Boolean) {
+        if (!value) {
+            useStandardPhoto()
+            return
+        }
+        val state = _ui.value
+        val camera = state.selected
+        if (value && camera != null && CameraPolicy.configuration(
+                camera, rawEnabled = state.preferences.raw, highResolution = true,
+            ) == null) {
+            _ui.update { it.copy(error = if (state.preferences.raw) {
+                "High-resolution RAW + JPEG is not exposed for this lens. Turn RAW off to use high-resolution JPEG only."
+            } else "This lens does not expose a public maximum-resolution JPEG stream.") }
+            return
+        }
+        settingAction { services.settings.setHighResolution(value) }
+    }
+    fun useStandardPhoto() = settingAction {
+        val state = _ui.value
+        val camera = state.selected
+        val keepRaw = state.preferences.raw && camera != null && CameraPolicy.configuration(
+            camera, rawEnabled = true, highResolution = false,
+        ) != null
+        services.settings.setPhotoModes(
+            rawEnabled = keepRaw,
+            highResolutionEnabled = false,
+        )
+    }
     private fun settingAction(action: suspend () -> Unit) {
         viewModelScope.launch {
             try { action() } catch (error: Exception) {

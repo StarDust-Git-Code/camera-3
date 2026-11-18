@@ -1,8 +1,9 @@
 # Progress and evidence
 
-Last updated: 2026-11-18. Baseline Photo was device-verified on the first build.
-RAW+Video is pushed/CI-green, but its installed APK fails before camera open
-(P-016); source corrections and five regression tests now pass local validation.
+Last updated: 2026-11-18. Correction `cc73c69` is CI-green and device-retested:
+preview/session opening works, with partial RAW/Video evidence. Genuine
+maximum-resolution still discovery and smooth video zoom are implemented and
+locally tested but uncommitted/device-unverified. Advanced GPU/audio work is planned.
 
 ## Current summary
 
@@ -11,19 +12,21 @@ RAW+Video is pushed/CI-green, but its installed APK fails before camera open
 | Workspace inspection | Host-observed complete | Empty directory before documentation |
 | Host Java/SDK/ADB | Host-observed available | Read-only tool/path/component inspection |
 | Device description | User-reported | A35, One UI 8.5, Magisk, unlocked BL/camera library |
-| Physical device connection | Device-observed available | Authorized over USB; Android 16/API 36 with spoofed Samsung props; serial excluded from docs |
+| Physical device connection | Historical device evidence; current access unavailable by instruction | Android 16/API 36 with spoofed Samsung props; serial excluded from docs |
 | Device baseline session | Device-verified (partial) | Permission/gate, preview, capture+storage, torch, zoom, 4-lens switching, lifecycle, settings persistence passed; Logs/share/full-caps/quality-isolation deferred (TESTING) |
 | Requirements/design | Documented | REQUIREMENTS, DECISIONS and subsystem docs |
 | Project-local Markdown | Created | Root AGENTS/README and 18 documents under docs |
-| Documentation consistency | Host-verified / reviewed | Prepublication check: 21 Markdown files, 59 local links, 0 issues, 115-line handoff; history in TESTING |
+| Documentation consistency | Host-verified / reviewed | Current check: 21 Markdown files, 59 local links, 0 broken targets, 93-line handoff; history in TESTING |
 | Android scaffold | Build-verified | Six modules compiled in run 44235722163 at 9174a63; API35 minimum/API36 target |
 | Photo/settings/logger | Device-verified for Photo path | Real Camera2/JPEG/MediaStore verified on-device with saved media; log screen/share intent and quality isolation still to exercise |
-| Runtime findings | P-016 active; earlier fixes await recheck | Latest preview black before open; P-011/P-012 corrections remain unverified on device |
-| Recording/RAW | Implemented / CI build-verified; device blocked | D-016/D-017; P-016 prevents latest preview and output verification |
+| Runtime findings | P-016 device-resolved for reproduced startup path | Correction log shows valid attachment/open/configure across Photo/Video/lens/lifecycle; P-011/P-012 checks remain |
+| Recording/RAW | Implemented / partial device evidence | JPEG+DNG save logs on IDs 0/1; user reports FHD/30 recording works. Saved DNG/MP4 inspection remains |
+| Maximum-resolution/smooth zoom | Implemented / locally build-verified | 14 model + 6 app tests in latest targeted run; no installed build has queried maximum-resolution maps or assessed zoom feel |
+| GPU color/RAW-frame/stereo monitoring | Planned | D-020 architecture only; no controls exposed |
 | Extensions/manual | Not implemented | Disabled or diagnostics-only, no fake pipeline |
-| GitHub Actions | Passed for RAW+Video | `409c5d9`, run 44251120868: tests/lint/APK + uploads success, independently re-queried |
-| App builds/tests/device validation | P-016 local validation passed; CI/device pending | 12 model + 5 app state tests, no failures; lint 0 errors/16 warnings; other Android tests NO-SOURCE; installed old preview failed |
-| APK/delivery | RAW+Video debug artifact verified/installed | Length/hash/v2 signature/package rechecked; device functionality blocked, exact evidence in TESTING |
+| GitHub Actions | P-016 correction passed | `cc73c69`, run 44259956383 success; latest high-resolution tranche not pushed yet |
+| App builds/tests/device validation | Current tranche locally build-verified | Final full gate: 14 model + 6 app tests, no failures; lint 0 errors/16 warnings; APK assembled and inspected |
+| APK/delivery | Correction debug artifact verified/installed | 62,251,997 bytes, SHA256 `33430B…F1E`, v2 signature/package verified; exact evidence in TESTING |
 
 ## Completed record
 
@@ -62,14 +65,13 @@ RAW+Video is pushed/CI-green, but its installed APK fails before camera open
 
 ## Next tasks
 
-1. Publish locally verified P-016 corrections/tests/docs; watch CI and verify
-   the correction APK and both test reports before installation.
-2. Reconnect/unlock the phone, install the verified correction, confirm actual
-   attachment/open/session/preview, then test RAW and Video saved outputs.
-3. Finish deferred Logs/share, full-capability and P-011/P-012 checks. Quality
-   stays 95% by user decision; no further slider work.
-4. Keep maintenance P-010 and genuine Night/Portrait/manual work separate;
-   NIGHT(4) is not advertised and disabled modes are not completed features.
+1. Review, commit and push the locally verified maximum-resolution/smooth-zoom
+   tranche, then verify its CI artifacts; no phone access is
+   authorized for this phase.
+2. Begin D-020 GPU/MediaCodec/AudioRecord architecture without exposing
+   unfinished LUT/Log/HDR/RAW-frame/stereo-monitor controls.
+3. When device testing resumes, query maximum-resolution maps first, verify
+   actual saved dimensions, then test zoom feel, RAW throughput and USB routing.
 
 ### 2026-11-18: Implementation bootstrap (not yet compiled)
 
@@ -238,21 +240,53 @@ RAW+Video is pushed/CI-green, but its installed APK fails before camera open
 - Final prepublication checks also passed: 21 Markdown files / 59 local links,
   115-line handoff, 0 issues; final reports still 12 model + 5 app tests with
   no failures, lint 0 errors / 16 warnings.
+- Committed/pushed corrections, regression tests and reference/issue/test docs as
+  `cc73c69`; CI run 44259956383 is in progress, background watcher active.
+  Post-push evidence updates remain local for the next meaningful commit batch.
+
+### 2026-11-18: P-016 retest and maximum-resolution/smooth-zoom tranche
+
+- Run 44259956383 completed successfully. Its APK/reports were downloaded and
+  verified: 62,251,997 bytes, SHA256 `33430BEB…F1E`, v2 signed; 12 model + 5 app
+  tests passed; lint reported 0 errors/17 warnings.
+- Installed correction restored real Surface attachment, camera opening and
+  configured Photo/Video sessions. Photo↔Video, ID 0↔1 and background/relaunch
+  sequencing completed without the paused-state reproduction; P-016 is resolved
+  for that path.
+- Device log records JPEG+DNG save completion on ID 0 (4080×3060 pair) and ID 1
+  (1920×1440 JPEG + 4128×3096 RAW). Files were not pulled/opened, so DNG validity,
+  metadata and rotation are still unverified.
+- User reports FHD/30 recording works and OIS does not. The app currently does
+  not request/verify OIS/EIS, so stabilization remains unimplemented; MP4 track,
+  orientation, cadence and A/V inspection are still open.
+- Added D-019 maximum-resolution discovery/policy/output/request handling,
+  persisted HI-RES gating with actual-MP labels and logarithmic smoothstep Video
+  zoom. Android docs confirm the map/key may exist without the ultra-high-resolution
+  capability flag. No installed build has queried these maps.
+- Added D-020 for a future app-owned GPU/MediaCodec/AudioRecord pipeline covering
+  LUT, defined Log/HDR, bounded RAW-frame storage, stereo and verified wired/USB
+  monitoring. It remains planned with no UI toggles.
+- Initial full local gate passed with 14 model + 5 app tests. After added
+  configuration-identity coverage and atomic standard-mode fallback, the final
+  full gate passed in 36s: 14 model + 6 app tests, no failures/errors/skips;
+  lint 0 errors/16 warnings; APK assembled, v2 signature/package checked.
 
 ## Active blockers
 
 - **P-004:** advanced-pipeline claims still need per-pipeline runtime evidence;
-  the RAW pipeline is now implemented but shares this status until verified.
+  RAW has save-log evidence but not file inspection.
 - **P-010:** reviewed nonblocking warnings; backup/transfer policy and action
   runtime/executable-mode maintenance remain follow-ups.
 - **P-011/P-012:** fix build is installed; clean close logs and capability
   labels still need the next device session.
 - **P-013:** resolved. No hard blocker; the user controls phone availability.
-- **P-016:** installed RAW+Video never opens the camera. Source-level display
-  defect corrected and gate-level logs/tests local build-verified. CI pending;
-  no physical retest yet.
-- Latest ADB foreground query found the test phone disconnected; installation
-  and physical preview/media checks require reconnection and unlock.
+- **P-016:** resolved for the reproduced startup path by correction-build device
+  retest; retain evidence and reopen if the paused state recurs.
+- **P-017:** current standard Video does not request/verify OIS/EIS; user reports
+  no OIS. Stabilization remains an explicit implementation/acceptance gap.
+- Maximum-resolution maps/session/files, smooth-zoom feel, advanced color/RAW
+  throughput, stereo channels and wired/USB routing are blocked on later device
+  access. No phone access is authorized during the current implementation phase.
 
 ## Update policy
 

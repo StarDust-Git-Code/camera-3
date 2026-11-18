@@ -1,20 +1,23 @@
 # Camera capabilities and availability policy
 
-Last updated: 2026-11-18. First physical-device query and baseline probe
-completed on the connected phone; findings below, evidence in TESTING.
+Last updated: 2026-11-18. Baseline, P-016 correction and partial RAW/Video
+device probes completed; maximum-resolution discovery is implemented but has
+not run on the phone. Evidence and limitations are in TESTING.
 
 ## Implemented baseline discovery / policy
 
-`CameraDiscovery.kt` reads public IDs, levels, JPEG/SurfaceHolder sizes, physical
-IDs, capabilities, keys, AF/flash/zoom, extension IDs and diagnostic ranges.
+`CameraDiscovery.kt` reads public IDs, levels, regular and maximum-resolution
+stream maps, physical IDs, capabilities, keys, AF/flash/zoom, extension IDs and
+diagnostic ranges.
 `CameraPolicy.kt` enforces LEVEL_3 eligibility, prefers a qualifying rear camera,
 and selects matching JPEG/preview aspect with a modest baseline size.
 The engine checks complete session support when the HAL implements that query,
 then requires configuration success. Zoom/torch check exposed keys/modes;
 unsupported combinations enter an explicit error/retry state, not fake preview.
 Lower-level auxiliary lenses are allowed only on an eligible phone (D-003).
-RAW, manual controls, extensions and recording capabilities are read-only claims
-until their pipelines exist. First real device findings are in the table below.
+RAW/DNG and first-cut MediaRecorder video pipelines exist; manual controls,
+extensions, GPU color processing and routed audio monitoring do not. First real
+device findings are in the table below.
 
 ## LEVEL_3-only startup requirement
 
@@ -66,6 +69,7 @@ Keep reported support separate from implementation and runtime evidence:
 | Feature | Detection / real implementation requirement |
 | --- | --- |
 | JPEG/resolution | StreamConfigurationMap output sizes and valid complete session |
+| Maximum-resolution JPEG/RAW | Maximum-resolution stream map, writable sensor pixel mode, pixel-mode-aware outputs/request and a valid complete session; label actual output MP, never marketing resolution |
 | RAW/DNG | RAW capability, RAW_SENSOR output, matching CaptureResult, DngCreator and valid saved DNG |
 | RAW+JPEG | Simultaneous outputs supported for the chosen sizes; never assume separate support implies combined support |
 | Manual ISO/shutter | Manual sensor capability, keys/ranges, AE-off policy, exposure/frame-duration relationship and result feedback |
@@ -145,10 +149,12 @@ from documentation. File evidence: TESTING execution record.
 | Zoom ratio range | ID 0/ID 2: 1.0…8.0; ID 1/ID 3: 1.0…4.0 |
 | Extension IDs (all four) | 1 = BEAUTY/FACE_RETOUCH, 2 = BOKEH; NIGHT(4), HDR(3), AUTOMATIC(0) not advertised |
 | Physical IDs | None reported on any camera (no sub-lens topology exposed) |
-| RAW/manual pipelines | Advertised, not implemented; diagnostics-only until M3 |
-| Video/encoder combos | Not tested; recording pipelines not implemented |
+| Regular RAW outputs | ID 0: 4080×3060; ID 1: 4128×3096; ID 2 reports one RAW size but its dimensions were not captured here; ID 3 reports none |
+| RAW+JPEG runtime | Correction-build logs show configured three-stream sessions and paired JPEG+DNG saves on IDs 0 and 1; files were not pulled/opened, so DNG validity/rotation remain unverified |
+| Standard Video runtime | Correction-build log shows ID 0 1920×1080 silent Video session configured; user reports FHD/30 recording works. File tracks, cadence, orientation and A/V sync were not independently inspected |
+| Stabilization | User reports OIS does not work in current video. The app does not yet select/verify OIS or EIS modes, so stabilization remains unimplemented rather than a passed feature |
 
-M3 planning consequences (to re-verify before implementation):
+Current implementation consequences (re-verify per new build/configuration):
 
 - Portrait has a genuine BOKEH (ID 2) extension path on this device.
 - The Camera2 NIGHT extension (ID 4) is not advertised, so the Night tab has no
@@ -156,6 +162,10 @@ M3 planning consequences (to re-verify before implementation):
   unless a different real pipeline is implemented later.
 - READ_SENSOR_SETTINGS/STREAM_USE_CASE/RAW advertise a manual/RAW path; key
   ranges must be revalidated per lens before manual controls are exposed.
+- The installed correction predates maximum-resolution-map discovery. Actual
+  maximum-resolution JPEG/RAW maps, sensor-pixel-mode writability, full-session
+  acceptance and saved dimensions are unknown. Existing 4080×3060 output is
+  approximately 12.5 MP and must never be labeled 50 MP.
 
 Populate additional facts here only after actual queries/tests, and link
 evidence from [TESTING.md](TESTING.md) and [PROGRESS.md](PROGRESS.md).

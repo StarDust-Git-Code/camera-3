@@ -1,17 +1,18 @@
 # UI/UX direction
 
-Last updated: 2026-11-18. Initial native Compose camera/settings/diagnostics/log
-screens compile successfully. Runtime and visual comparison on a device are pending.
+Last updated: 2026-11-18. Native Compose camera/settings/diagnostics/log screens
+are build-verified; baseline camera UI has partial device evidence. The attached
+reference still has no local asset or pixel-level comparison artifact.
 
 ## Implemented reference adaptation
 
-Black background, quiet panels, white centered shutter, real JPEG/MP summary,
-portrait fitted live preview, actual camera-ID chips, grid, and simple settings
-rows. The attachment was re-supplied with the build request; it is still not a
-local image asset. No fake system bars, scenery, hardware figures or Log profiles.
-Night/Portrait/Video/Pro Video tabs are disabled and the screen explicitly says
-this development build supports Photo only. Larger-text/accessibility review
-and phone screenshot comparison remain outstanding.
+Black background, quiet panels, white centered shutter/record control, truthful
+JPEG megapixel and MP4 summaries, portrait fitted live preview, actual camera-ID
+chips, grid and settings rows. RAW and HI-RES chips appear only for qualifying
+real configurations; HI-RES shows actual output MP and `MAX`, never a fixed 50 MP
+claim. Video is available only with a real recorder/preview pairing. Night,
+Portrait and Pro Video remain disabled. No fake system bars, scenery, hardware
+figures or Log profiles. Larger-text/accessibility and reference comparison remain.
 
 ## Reference provenance
 

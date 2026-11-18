@@ -1,7 +1,7 @@
 # Settings inventory and behavior
 
 Last updated: 2026-11-18. Initial settings exist; the comprehensive inventory below
-is still mostly planned. No physical-device setting-effect tests have run.
+is still mostly planned. High-resolution preference is build-verified, not device-verified.
 
 ## Implemented subset
 
@@ -9,10 +9,17 @@ is still mostly planned. No physical-device setting-effect tests have run.
   only over the real fitted preview.
 - `jpeg_quality`: integer 50..100, default 95, persisted globally; UI uses 5-point
   steps; next still request sets `JPEG_QUALITY` from the validated preference.
+- `raw`: boolean, default false, persisted globally; only accepted when the active
+  standard/maximum-resolution photo configuration has a real compatible RAW stream.
+- `high_resolution`: boolean, default false, persisted globally; shown as HI-RES
+  only when the active lens exposes a writable sensor-pixel-mode key and a real
+  maximum-resolution JPEG. It reconfigures the session and never relabels baseline
+  JPEG. Returning to standard mode atomically clears RAW too when no compatible
+  standard RAW configuration exists, avoiding an invalid intermediate preference.
 - Actual system app-permissions action, diagnostics/log navigation and build info.
 - MediaStore destination is fixed/read-only `DCIM/Camera3` in this baseline.
-- Lens selection/zoom/torch are transient hardware-aware controls, not persisted
-  advanced settings. No editable video/audio/RAW/LUT placeholders.
+- Lens selection/zoom/torch are transient hardware-aware controls. LUT/Log/HDR,
+  RAW-frame video and audio-monitoring settings remain absent until their pipelines exist.
 
 ## Functional-settings contract
 

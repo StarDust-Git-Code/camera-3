@@ -18,12 +18,27 @@ class SettingsRepository(context: Context) {
     private val grid = booleanPreferencesKey("grid")
     private val quality = intPreferencesKey("jpeg_quality")
     private val raw = booleanPreferencesKey("raw")
+    private val highResolution = booleanPreferencesKey("high_resolution")
     val preferences = store.data.catch { error ->
         if (error is IOException) emit(emptyPreferences()) else throw error
-    }.map { PhotoPreferences(it[grid] ?: false, (it[quality] ?: 95).coerceIn(50, 100), it[raw] ?: false) }
+    }.map {
+        PhotoPreferences(
+            grid = it[grid] ?: false,
+            jpegQuality = (it[quality] ?: 95).coerceIn(50, 100),
+            raw = it[raw] ?: false,
+            highResolution = it[highResolution] ?: false,
+        )
+    }
 
     suspend fun setGrid(enabled: Boolean) { store.edit { it[grid] = enabled } }
     suspend fun setRaw(enabled: Boolean) { store.edit { it[raw] = enabled } }
+    suspend fun setHighResolution(enabled: Boolean) { store.edit { it[highResolution] = enabled } }
+    suspend fun setPhotoModes(rawEnabled: Boolean, highResolutionEnabled: Boolean) {
+        store.edit {
+            it[raw] = rawEnabled
+            it[highResolution] = highResolutionEnabled
+        }
+    }
     suspend fun setJpegQuality(value: Int) {
         require(value in 50..100)
         store.edit { it[quality] = value }
