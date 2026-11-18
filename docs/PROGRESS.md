@@ -1,8 +1,8 @@
 # Progress and evidence
 
-Last updated: 2026-11-18. Initial Photo implementation exists. First debug APK
-build-verified and installed on the user's phone; baseline device session
-completed with fixes for two runtime findings awaiting the next CI build.
+Last updated: 2026-11-18. Baseline Photo was device-verified on the first build.
+RAW+Video is pushed/CI-green, but its installed APK fails before camera open
+(P-016); source corrections and five regression tests now pass local validation.
 
 ## Current summary
 
@@ -15,14 +15,15 @@ completed with fixes for two runtime findings awaiting the next CI build.
 | Device baseline session | Device-verified (partial) | Permission/gate, preview, capture+storage, torch, zoom, 4-lens switching, lifecycle, settings persistence passed; Logs/share/full-caps/quality-isolation deferred (TESTING) |
 | Requirements/design | Documented | REQUIREMENTS, DECISIONS and subsystem docs |
 | Project-local Markdown | Created | Root AGENTS/README and 18 documents under docs |
-| Documentation consistency | Host-verified / reviewed | Final build checkpoint: 20 Markdown files, 56 local links, 0 issues, 72-line handoff; history in TESTING |
+| Documentation consistency | Host-verified / reviewed | Prepublication check: 21 Markdown files, 59 local links, 0 issues, 115-line handoff; history in TESTING |
 | Android scaffold | Build-verified | Six modules compiled in run 44235722163 at 9174a63; API35 minimum/API36 target |
 | Photo/settings/logger | Device-verified for Photo path | Real Camera2/JPEG/MediaStore verified on-device with saved media; log screen/share intent and quality isolation still to exercise |
-| Runtime findings | Fixed, re-verify pending | P-011 close-log noise and P-012 unmapped capability labels fixed; local compile passed; next CI/device run confirms |
-| Recording/RAW/extensions/manual | Not implemented | Disabled or diagnostics-only, no fake pipeline |
-| GitHub Actions | Passed | `9174a63`, run 44235722163: tests/lint/APK + both artifact uploads passed |
-| App builds/tests/device validation | Build/model tests passed; device untested | Nine model tests passed; lint 0 errors/17 warnings; Android test tasks NO-SOURCE |
-| APK/delivery | Debug artifact verified | Artifact 14397496809 downloaded; signature/package checked locally; exact path/hash in TESTING |
+| Runtime findings | P-016 active; earlier fixes await recheck | Latest preview black before open; P-011/P-012 corrections remain unverified on device |
+| Recording/RAW | Implemented / CI build-verified; device blocked | D-016/D-017; P-016 prevents latest preview and output verification |
+| Extensions/manual | Not implemented | Disabled or diagnostics-only, no fake pipeline |
+| GitHub Actions | Passed for RAW+Video | `409c5d9`, run 44251120868: tests/lint/APK + uploads success, independently re-queried |
+| App builds/tests/device validation | P-016 local validation passed; CI/device pending | 12 model + 5 app state tests, no failures; lint 0 errors/16 warnings; other Android tests NO-SOURCE; installed old preview failed |
+| APK/delivery | RAW+Video debug artifact verified/installed | Length/hash/v2 signature/package rechecked; device functionality blocked, exact evidence in TESTING |
 
 ## Completed record
 
@@ -61,17 +62,14 @@ completed with fixes for two runtime findings awaiting the next CI build.
 
 ## Next tasks
 
-1. Push the P-011/P-012 fixes + device-session docs, watch CI, download and
-   verify the new APK, then reinstall (fresh CI debug keys may require
-   uninstall/reinstall).
-2. Finish the deferred device checks: Logs screen + share/export intent,
-   "View full capabilities" detail, one fresh quality-100 capture, and clean
-   close-log observation (P-011/P-012 re-verification) — only while the user
-   is not using the phone, verifying foreground before each tap.
-3. Address reviewed maintenance warnings separately (P-010), without blanket
-   suppression or untested major upgrades.
-4. Plan M3 with the observed per-lens facts: BOKEH (2) exists, NIGHT (4) is not
-   advertised; RAW/manual flags need per-lens key-range revalidation before UI.
+1. Publish locally verified P-016 corrections/tests/docs; watch CI and verify
+   the correction APK and both test reports before installation.
+2. Reconnect/unlock the phone, install the verified correction, confirm actual
+   attachment/open/session/preview, then test RAW and Video saved outputs.
+3. Finish deferred Logs/share, full-capability and P-011/P-012 checks. Quality
+   stays 95% by user decision; no further slider work.
+4. Keep maintenance P-010 and genuine Night/Portrait/manual work separate;
+   NIGHT(4) is not advertised and disabled modes are not completed features.
 
 ### 2026-11-18: Implementation bootstrap (not yet compiled)
 
@@ -199,6 +197,47 @@ completed with fixes for two runtime findings awaiting the next CI build.
   otherwise) used by user stop, backgrounding and `close()`, silent mode
   without `RECORD_AUDIO` (Settings Grant row), REC timer UI, and honest
   "Video unavailable on this lens" copy when no qualifying pairing exists.
+- User shared four open-source camera projects as reference; surveyed and
+  recorded in REFERENCE-PROJECTS.md (license implications included: Open
+  Camera is GPLv3 — concepts only, no code copying). Borrowable ideas noted
+  for M5/M6 (recording policy, foreground-service recording survival, FPS
+  lock, storage benchmark, GPU RAW path) and the deferred photo ideas (LUT
+  engine, Motion Photos, multi-frame Night, AI depth bokeh — PhotonCamera).
+
+### 2026-11-18: Parallel P-016 investigation and startup corrections
+
+- User authorized multiple subagents. Independent static audit, bounded-log
+  instrumentation, host/CI/APK verification and issue/test documentation completed;
+  separate implementation and regression-test passes followed.
+- Host independently re-queried success for `409c5d9` / 44251120868 and
+  `0d40728` / 44248444802; installed RAW+Video APK bytes/hash/v2 signature,
+  package/API35 minimum/API36 target and 12-test/lint reports match TESTING.
+- Fresh audit found `Application.display` before `setSource` in both modes;
+  installed SDK source confirms non-display-context exceptions and SurfaceView
+  callback exception handling. The original startup logcat is outside the saved
+  window, so this is a demonstrated source defect, not captured runtime causality.
+- D-018 source corrections implemented: rotation from SurfaceView, independent
+  Photo availability, full active-configuration preview key. Existing engine
+  gates/resource logic unchanged; P-016 DEBUG logs expose callback/attachment and
+  gate outcomes. Added five synthetic CameraUiState regression tests; none proves
+  Compose callback behavior or physical output. Local full validation passed
+  (`:core:model:test testDebugUnitTest :app:lintDebug :app:assembleDebug`,
+  BUILD SUCCESSFUL in 4m12s); model task was up-to-date, new app tests ran.
+  XML reports: 12 model + 5 app tests, no failures/errors/skips; lint 0 errors /
+  16 warnings. Other Android-module unit tests remain NO-SOURCE.
+- Independent integrated-source review found no blocking wiring defect; noted
+  queued RAW-update/late-callback stress cases. UI lens/mode/RAW availability
+  now follows model busy state during both capture and recording; final-source
+  full local revalidation passed (BUILD SUCCESSFUL in 49s). Independent review
+  and compilation are not a physical retest; no device inputs were performed.
+- ADB foreground query found the test phone disconnected; no installs or inputs
+  performed. DevRelay namespace discovery again returned no tools; no community
+  or event claims fabricated.
+- Pre-build documentation check: 21 Markdown files, 59 local links, 0 missing
+  targets/identifier issues, 114-line handoff; `git diff --check` clean.
+- Final prepublication checks also passed: 21 Markdown files / 59 local links,
+  115-line handoff, 0 issues; final reports still 12 model + 5 app tests with
+  no failures, lint 0 errors / 16 warnings.
 
 ## Active blockers
 
@@ -209,8 +248,11 @@ completed with fixes for two runtime findings awaiting the next CI build.
 - **P-011/P-012:** fix build is installed; clean close logs and capability
   labels still need the next device session.
 - **P-013:** resolved. No hard blocker; the user controls phone availability.
-- The next build carries both RAW and Video (M4 first cut); both pipelines are
-  device-unverified until that install and session.
+- **P-016:** installed RAW+Video never opens the camera. Source-level display
+  defect corrected and gate-level logs/tests local build-verified. CI pending;
+  no physical retest yet.
+- Latest ADB foreground query found the test phone disconnected; installation
+  and physical preview/media checks require reconnection and unlock.
 
 ## Update policy
 

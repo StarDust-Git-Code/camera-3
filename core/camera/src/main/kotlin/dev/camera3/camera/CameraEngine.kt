@@ -98,23 +98,29 @@ class CameraEngine(
     private val CONTROL_PHASES = listOf(CameraPhase.PREVIEWING, CameraPhase.RECORDING)
 
     fun setSource(camera: CameraDescriptor, plan: StreamPlan, surface: Surface, displayDegrees: Int = 0) = post {
+        logger.log(LogLevel.DEBUG, "Camera", "P-016 engine.setSource cameraId=${camera.id} plan=${plan.mode} surfaceValid=${surface.isValid} surfaceHash=${System.identityHashCode(surface)} displayDegrees=$displayDegrees")
         val source = Source(camera, plan, surface, displayDegrees)
         if (source != desired) blocked = false
         desired = source
         reconcile()
     }
     fun detachSurface(surface: Surface) = post {
+        logger.log(LogLevel.DEBUG, "Camera", "P-016 engine.detachSurface matchesDesired=${desired?.surface === surface} surfaceValid=${surface.isValid} surfaceHash=${System.identityHashCode(surface)} desiredId=${desired?.camera?.id}")
         if (desired?.surface === surface) desired = null
         reconcile()
     }
     fun setForeground(value: Boolean) = post {
+        logger.log(LogLevel.DEBUG, "Camera", "P-016 engine.setForeground value=$value previous=$foreground")
         if (value && !foreground) blocked = false
         foreground = value
         reconcile()
     }
     fun setPreferences(value: PhotoPreferences) = post { preferences = value }
     fun retry() = post { blocked = false; reconcile() }
-    fun dispose() = post { disposed = true; desired = null; foreground = false; reconcile(); quitIfSafe() }
+    fun dispose() = post {
+        logger.log(LogLevel.DEBUG, "Camera", "P-016 engine.dispose desiredId=${desired?.camera?.id} foreground=$foreground disposed=$disposed blocked=$blocked epoch=$epoch activeEpoch=${active?.epoch} phase=${_runtime.value.phase}")
+        disposed = true; desired = null; foreground = false; reconcile(); quitIfSafe()
+    }
 
     private fun post(action: () -> Unit) {
         handler.post {
@@ -127,6 +133,15 @@ class CameraEngine(
     private fun reconcile() {
         val target = desired?.takeIf { foreground && !disposed && it.surface.isValid && !blocked }
         val current = active
+        val pausedReason = when {
+            disposed -> "disposed"
+            desired == null -> "no-source"
+            !foreground -> "not-foreground"
+            blocked -> "blocked"
+            target == null -> "invalid-surface"
+            else -> "none"
+        }
+        logger.log(LogLevel.DEBUG, "Camera", "P-016 engine.reconcile desiredId=${desired?.camera?.id} plan=${desired?.plan?.mode} hasSource=${desired != null} foreground=$foreground disposed=$disposed surfaceValid=${desired?.surface?.isValid} surfaceHash=${desired?.surface?.let { System.identityHashCode(it) }} blocked=$blocked pausedReason=$pausedReason targetId=${target?.camera?.id} epoch=$epoch activeEpoch=${current?.epoch} activeId=${current?.source?.camera?.id} phase=${_runtime.value.phase} closing=${current?.closing}")
         if (current != null) {
             if (target != current.source || current.closing) close(current)
             return // Never reopen until the old CameraDevice's onClosed callback.

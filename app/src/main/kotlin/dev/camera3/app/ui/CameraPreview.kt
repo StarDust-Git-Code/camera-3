@@ -16,10 +16,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import dev.camera3.app.Camera3Application
 import dev.camera3.model.CameraDescriptor
 import dev.camera3.model.CameraPolicy
 import dev.camera3.model.Dimensions
 import dev.camera3.model.LensFacing
+import dev.camera3.model.LogLevel
 
 @Composable
 fun CameraPreview(
@@ -27,10 +29,11 @@ fun CameraPreview(
     preview: Dimensions,
     grid: Boolean,
     modifier: Modifier = Modifier,
-    attach: (Surface) -> Unit,
+    attach: (Surface, Int) -> Unit,
     detach: (Surface) -> Unit,
 ) {
     val context = LocalContext.current
+    val logger = remember(context) { (context.applicationContext as? Camera3Application)?.services?.logger }
     val attachLatest by rememberUpdatedState(attach)
     val detachLatest by rememberUpdatedState(detach)
     var rotation by remember { mutableIntStateOf(context.display?.rotation ?: Surface.ROTATION_0) }
@@ -56,18 +59,34 @@ fun CameraPreview(
                 AndroidView(
                     factory = { ctx ->
                         SurfaceView(ctx).apply {
+                            val surfaceView = this
                             holder.setFixedSize(preview.width, preview.height)
                             holder.addCallback(object : SurfaceHolder.Callback {
-                                override fun surfaceCreated(holder: SurfaceHolder) { attachLatest(holder.surface) }
-                                override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-                                    attachLatest(holder.surface)
+                                override fun surfaceCreated(holder: SurfaceHolder) {
+                                    val display = surfaceView.display
+                                    val displayRotation = display?.rotation ?: Surface.ROTATION_0
+                                    logger?.log(LogLevel.DEBUG, "Preview", "P-016 preview.surfaceCreated cameraId=${camera.id} surfaceValid=${holder.surface.isValid} surfaceHash=${System.identityHashCode(holder.surface)} displayPresent=${display != null} displayRotation=$displayRotation")
+                                    attachLatest(holder.surface, displayRotation)
                                 }
-                                override fun surfaceDestroyed(holder: SurfaceHolder) { detachLatest(holder.surface) }
+                                override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+                                    val display = surfaceView.display
+                                    val displayRotation = display?.rotation ?: Surface.ROTATION_0
+                                    logger?.log(LogLevel.DEBUG, "Preview", "P-016 preview.surfaceChanged cameraId=${camera.id} format=$format size=${width}x$height surfaceValid=${holder.surface.isValid} surfaceHash=${System.identityHashCode(holder.surface)} displayPresent=${display != null} displayRotation=$displayRotation")
+                                    attachLatest(holder.surface, displayRotation)
+                                }
+                                override fun surfaceDestroyed(holder: SurfaceHolder) {
+                                    logger?.log(LogLevel.DEBUG, "Preview", "P-016 preview.surfaceDestroyed cameraId=${camera.id} surfaceValid=${holder.surface.isValid} surfaceHash=${System.identityHashCode(holder.surface)}")
+                                    detachLatest(holder.surface)
+                                }
                             })
+                            logger?.log(LogLevel.DEBUG, "Preview", "P-016 preview.callbackRegistered cameraId=${camera.id} preview=${preview.width}x${preview.height} surfaceValid=${holder.surface.isValid} surfaceHash=${System.identityHashCode(holder.surface)}")
                         }
                     },
                     modifier = Modifier.fillMaxSize(),
-                    onRelease = { view -> detachLatest(view.holder.surface) },
+                    onRelease = { view ->
+                        logger?.log(LogLevel.DEBUG, "Preview", "P-016 preview.onRelease cameraId=${camera.id} surfaceValid=${view.holder.surface.isValid} surfaceHash=${System.identityHashCode(view.holder.surface)}")
+                        detachLatest(view.holder.surface)
+                    },
                 )
             }
             if (grid) Canvas(Modifier.fillMaxSize()) {

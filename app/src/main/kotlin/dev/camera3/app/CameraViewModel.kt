@@ -40,6 +40,7 @@ data class CameraUiState(
     val videoConfiguration get() = selected?.let { camera ->
         if (mode == CameraMode.VIDEO) CameraPolicy.videoConfiguration(camera, micGranted) else null
     }
+    val photoUsable get() = selected?.let { CameraPolicy.configuration(it, rawEnabled) } != null
     val videoUsable get() = selected?.let { CameraPolicy.videoConfiguration(it, micGranted) } != null
     val busy get() = runtime.phase == CameraPhase.CAPTURING || runtime.phase == CameraPhase.RECORDING
 }
@@ -81,6 +82,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                 val cameras = services.discovery.discover()
                 val selected = CameraPolicy.initialCamera(cameras)
                 _ui.update { it.copy(cameras = cameras, selectedId = selected?.id, discovering = false) }
+                services.logger.log(LogLevel.DEBUG, "Discovery", "P-016 viewModel.discover count=${cameras.size} selectedId=${selected?.id}")
                 services.logger.log(LogLevel.INFO, "Eligibility", "LEVEL_3 device eligible=${CameraPolicy.isEligible(cameras)}, baselineCamera=${selected?.id}")
             } catch (error: Exception) {
                 services.logger.log(LogLevel.ERROR, "Discovery", "Camera discovery failed", error)
@@ -119,15 +121,25 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         _ui.update { it.copy(mode = mode) }
     }
 
-    fun attachSurface(surface: Surface) {
+    fun attachSurface(surface: Surface, displayRotation: Int) {
         val state = _ui.value
-        if (!state.permission || !state.eligible) return
+        val degrees = displayRotation * 90
+        services.logger.log(LogLevel.DEBUG, "Preview", "P-016 viewModel.attachSurface selectedId=${state.selectedId} mode=${state.mode} surfaceValid=${surface.isValid} surfaceHash=${System.identityHashCode(surface)} permission=${state.permission} eligible=${state.eligible} displayRotation=$displayRotation degrees=$degrees")
+        if (!state.permission || !state.eligible) {
+            services.logger.log(LogLevel.DEBUG, "Preview", "P-016 viewModel.attachSurface skipped reason=${if (!state.permission) "no-permission" else "ineligible"} selectedId=${state.selectedId} mode=${state.mode}")
+            return
+        }
+        if (state.selected == null) {
+            services.logger.log(LogLevel.DEBUG, "Preview", "P-016 viewModel.attachSurface skipped reason=no-camera selectedId=${state.selectedId} mode=${state.mode}")
+        }
         state.selected?.let { camera ->
             val plan = when (state.mode) {
                 CameraMode.PHOTO -> state.configuration?.let { StreamPlan.Photo(it) }
                 CameraMode.VIDEO -> state.videoConfiguration?.let { StreamPlan.Video(it) }
-            } ?: return
-            val degrees = (getApplication<Application>().display?.rotation ?: 0) * 90
+            } ?: run {
+                services.logger.log(LogLevel.DEBUG, "Preview", "P-016 viewModel.attachSurface skipped reason=${if (state.mode == CameraMode.PHOTO) "no-photo-configuration" else "no-video-configuration"} selectedId=${state.selectedId} mode=${state.mode}")
+                return
+            }
             engine.setSource(camera, plan, surface, degrees)
         }
     }

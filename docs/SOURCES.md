@@ -46,6 +46,18 @@ DevRelay discovery returned no available connector namespace. Therefore no DEV
 article, comment thread, community consensus or event match was verified or cited.
 Do not invent those sources in a future summary.
 
+## P-016 platform source inspection
+
+- Installed SDK `sources/android-36.1/android/app/ContextImpl.java`, lines
+  3284–3306: `getDisplay()` throws `UnsupportedOperationException` for a context
+  not associated with a display; ordinary Application is not a visual context.
+- `sources/android-36.1/android/view/SurfaceView.java`, lines 1386–1438:
+  surface-created/changed callbacks run within a catch that logs
+  "Exception configuring surface". A callback failure need not be a fatal crash.
+- These sources were read locally during the P-016 investigation. They support
+  the D-018 source correction, not an assertion that the modified phone emitted
+  a particular exception. Original startup logcat was no longer in the capture.
+
 ## Future research record
 
 ## Build / preview sources inspected during implementation

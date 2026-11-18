@@ -1,9 +1,9 @@
 # Problems, investigations and solutions
 
 Last updated: 2026-11-18. This is an evidence ledger, not a list of imagined app
-bugs. Initial implementation is build-verified; the first device session
-verified the baseline Photo path; two runtime findings were fixed and await the
-next device run.
+bugs. The earlier baseline Photo session passed; the installed RAW+Video APK
+fails before camera open (P-016). Source corrections are locally build-verified;
+functional retest of the correction is still pending.
 
 ## P-001: No connected physical device
 
@@ -217,6 +217,54 @@ next device run.
   compiled. The root cause in the K2 frontend was not investigated further;
   the fix is behavior-neutral.
 - **Status:** resolved; recorded because the failing shape looked idiomatic.
+
+## P-016: Camera remains paused after RAW+Video reinstall
+
+- **Status:** source correction local build-verified; CI/runtime retest pending.
+  P-016 is **NOT device-resolved**; current acceptance remains blocked.
+- **First observed / affected:** 2026-11-18, installed RAW+Video APK from run
+  44251120868 / `409c5d9`, `dev.camera3.app` `0.1.0-dev`, on the connected
+  Android 16 / API 36 phone with the user-reported modified camera stack.
+- **Reproduction / actual:** launch/relaunch and return to the camera screen;
+  MainActivity is resumed, but the SurfaceView is black and status says
+  "Camera paused" instead of opening the selected camera and showing real preview.
+- **Discovery / eligibility:** three complete passes, each reporting four
+  LEVEL_3 IDs and `eligible=true, baselineCamera=0`. This proves those gate
+  observations only, not a working session or RAW/Video output.
+- **Open evidence:** zero `Opening ID` entries in the saved app log. The captured
+  `media.camera` dump has `Active Camera Clients: []` and no Camera3 CONNECT
+  since reinstall; older CONNECT entries confirm the earlier baseline app did
+  connect. CAMERA and RECORD_AUDIO are both granted; no Camera3 crash, ANR or
+  Camera2 error was found in the captured buffers.
+- **Evidence:** `app/build/ci/device-testing/debug-report-01/` — `camera-0.log`,
+  `screen.png`, `ui-dump.xml`, `top-activity*.txt`, `permissions.txt`,
+  `media-camera.txt`, `events-camera3.txt`, `logcat*.txt`, `crash-buffer.txt`.
+- **Background only:** Samsung Freecess freezes the process later, after screen
+  off; that chronology is not proof of the preview failure's root cause. The
+  Nov-17 vendor-provider SIGSEGV in `camera.s5e8835.so` is historical context,
+  not an error from this attempt.
+- **Investigation:** initial wiring review found no defect; fresh parallel review
+  found the Video change's `Application.display` lookup immediately before
+  `setSource` in both modes. Local SDK `ContextImpl.getDisplay()` throws for
+  non-display contexts; SurfaceView catches surface callback exceptions. This
+  explains a possible no-source/no-fatal-crash path, but the saved logcat window
+  starts after startup, so the original exception was not captured.
+- **Selected source correction (D-018):** pass rotation from the real SurfaceView
+  display into attachment, rather than query Application. Added bounded P-016
+  callback/attachment/foreground/reconcile logs with explicit gate reasons.
+  Also restored complete active-configuration preview keys for RAW/microphone
+  changes and independent Photo availability while Video is selected.
+- **Remaining uncertainty:** attachment rejection/replay and device surface
+  validity/foreground ordering need runtime logs if preview still fails. No
+  source review or build alone establishes P-016's actual runtime resolution.
+- **Local verification:** full model/Android unit-test, lint and debug-APK command
+  succeeded in 4m12s. Reports: 12 model tests (task up-to-date) and 5 new app
+  state tests, 0 failures/errors/skips; lint 0 errors / 16 warnings. Other
+  Android-module tests remain NO-SOURCE; no physical retest performed.
+  Final-source full command passed again in 49s after busy-state UI alignment.
+- **Verification required:** fresh foreground startup with gate/open/session
+  evidence, then D-02 preview and D-04/D-10/D-11 RAW/media/audio checks after an
+  evidence-backed fix. No passing retest exists yet.
 
 ### Future issue template
 

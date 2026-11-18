@@ -146,7 +146,7 @@ private fun ColumnScope.CameraScreen(
 ) {
     val context = LocalContext.current
     val ready = ui.runtime.phase == CameraPhase.PREVIEWING && ui.runtime.cameraId == ui.selectedId
-    val changingAllowed = ui.runtime.phase != CameraPhase.CAPTURING
+    val changingAllowed = !ui.busy
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween) {
         IconButton(onClick = model::torch, enabled = ready && ui.selected?.supportsTorch == true) {
@@ -190,7 +190,8 @@ private fun ColumnScope.CameraScreen(
                 "No 16:9 MediaRecorder size at or under 1080p has a matching preview stream. Photo remains available.",
                 "Back to photo", { model.setMode(CameraMode.PHOTO) }, "View diagnostics", diagnostics)
             camera != null && preview != null -> {
-                key(ui.mode) {
+                // RAW and microphone changes must replace the session even if preview size is unchanged.
+                key(camera.id, ui.mode, config, videoConfig) {
                     CameraPreview(camera, preview, ui.preferences.grid, Modifier.fillMaxSize(), model::attachSurface, model::detachSurface)
                 }
                 if (ui.runtime.phase == CameraPhase.ERROR) {
@@ -224,7 +225,7 @@ private fun ColumnScope.CameraScreen(
         horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally)) {
         items(listOf("Night", "Portrait", "Photo", "Video", "Pro Video")) { label ->
             val mode = if (label == "Photo") CameraMode.PHOTO else CameraMode.VIDEO
-            val usable = mode == CameraMode.PHOTO && ui.configuration != null || mode == CameraMode.VIDEO && ui.videoUsable
+            val usable = mode == CameraMode.PHOTO && ui.photoUsable || mode == CameraMode.VIDEO && ui.videoUsable
             when {
                 label !in listOf("Photo", "Video") ->
                     TextButton(onClick = {}, enabled = false) { Text(label, style = MaterialTheme.typography.labelMedium) }

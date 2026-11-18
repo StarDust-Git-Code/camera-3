@@ -1,9 +1,11 @@
 # Testing and evidence
 
-Last updated: 2026-11-18. Debug build, nine model tests and lint passed through
-GitHub Actions. APK metadata/signing checked locally. First physical-device
-baseline session completed on the connected phone; remaining UI checks deferred
-to the next install (see the device session section).
+Last updated: 2026-11-18. P-016 correction local build passed: 12 model + 5 app
+state tests / 0 failures; lint 0 errors / 16 warnings; debug APK assembled.
+Correction CI/device checks pending. The earlier RAW+Video APK is installed,
+but camera-open/preview and functional device verification are
+**BLOCKED by P-016**. The earlier Photo baseline is historical, not verification
+of the latest build.
 
 ## Evidence rules
 
@@ -75,11 +77,29 @@ reported before delivery.
 
 ## Stress and performance
 
+### P-016 correction retest order (planned, not results)
+
+1. Assistant installs the verified correction when the phone is reconnected and
+   unlocked; user performs UI actions. Keep mic permission ungranted initially
+   if reinstall reset it. Stop if preview remains black and collect fresh logs.
+2. Confirm live Photo preview, switch lenses and return to ID 0. Assistant checks
+   attachment → valid target → open → configured session logs; save one JPEG.
+3. On a RAW-capable lens, toggle RAW, wait for preview, capture a JPEG+DNG pair,
+   then toggle RAW off. Inspect actual session streams, files and DNG metadata.
+4. Switch Photo → Video → Photo → Video. Record a short silent clip and stop;
+   inspect MP4 playback/orientation/video-only tracks before granting mic.
+5. Grant microphone in Settings, return, record a spoken clip; verify actual
+   audio track/playback/sync. Repeat start/stop, then background during a take
+   and verify finalization plus preview recovery. No untested step is a pass.
+
 - Repeat shutter/lens/mode operations and record start/stop under normal usage.
 - Run longer recordings at validated settings; observe storage, temperature,
   dropped frames, memory and cleanup. Choose/document durations based on safe
   device conditions rather than claiming arbitrary targets were tested.
 - Exercise interrupted configuration and cancellation while surfaces change.
+- After P-016, stress rapid RAW→capture and repeated mode/lens changes to check
+  delayed preference writes and late callbacks; availability must reflect busy
+  capture/recording state. These cases are planned, not source-review passes.
 - Check logs/analysis cannot starve capture or create unbounded queues.
 - Measure startup, session-switch and capture durations with monotonic time.
 - Inspect actual frame timestamps; fixed/variable FPS choices and low-light
@@ -138,14 +158,24 @@ work. DOC-04: platform/device constraints agree across canonical files.
 | 2026-11-18 | RAW commit CI run | Passed | Commit `7905a89`, [run 44247877745](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44247877745) concluded success (foreground watch, exit 0) |
 | 2026-11-18 | RAW APK verification | Passed, host-observed | Downloaded `camera3-debug-apk`: 62,186,421 bytes, SHA256 `17ab7be0d15ed57b8f57bc56297cb8c50440f8aff74cd6aff4b2a26c1128cd78`, v2 signature verified, aapt2 confirms dev.camera3.app 0.1.0-dev; lint 0 errors/17 warnings; Gradle HTML report shows 11 tests / 0 failures; device install pending (phone disconnected at attempt) |
 | 2026-11-18 | Video pipeline local build | Passed, build-verified | `:core:model:test` 12 tests 0 failures (incl. `videoNeedsBoundedWideSizeAndMatchingPreview`) + `:core:camera|media|settings:compileDebugKotlin` + `:app:compileDebugKotlin` BUILD SUCCESSFUL; two compile errors found and fixed in-session (nullable reader target, missing appContext field); CI rerun remains the authoritative gate |
+| 2026-11-18 | Video commit CI run | Passed | Commit `409c5d9`, [run 44251120868](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44251120868) concluded success (foreground watch, exit 0); the docs checkpoint `0d40728` run 44248444802 was also CI-green |
+| 2026-11-18 | RAW+Video APK verification | Passed, host-observed | Downloaded `camera3-debug-apk`: 62,235,613 bytes, SHA256 `685ad39061ea10f34987651602bafa9b6bd8ba144a868215854ad5d9fcc628ef`, v2 signature verified, aapt2 confirms dev.camera3.app 0.1.0-dev; lint 0 errors/17 warnings; Gradle HTML report shows 12 tests / 0 failures; device install was pending at that checkpoint (phone disconnected) |
+| 2026-11-18 | RAW+Video reinstall | Passed, install only (recorded session checkpoint) | `install -r` failed with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`; authorized uninstall + streamed install succeeded. CAMERA re-granted via `pm grant`, microphone user-granted; both grants corroborated by `debug-report-01/permissions.txt` |
+| 2026-11-18 | RAW+Video artifact/report read-back | Passed, host-observed | Read-only size/SHA256, `apksigner verify --verbose` v2 signature and `aapt2 dump badging` identity match the checkpoint; local reports show 12 model tests / 0 failures and lint 0 errors / 17 warnings. No new Gradle/device actions performed for this read-back |
+| 2026-11-18 | Latest D-01 discovery/eligibility | Passed this gate only | `debug-report-01/camera-0.log`: three passes, four reported LEVEL_3 IDs each, `eligible=true, baselineCamera=0`; not session/output verification |
+| 2026-11-18 | Latest D-02 / RAW+Video device acceptance | Preview failed; further checks BLOCKED (P-016) | Resumed camera screen, black SurfaceView / "Camera paused", zero `Opening ID`, no post-reinstall Camera3 CONNECT. [P-016](PROBLEMS-AND-SOLUTIONS.md#p-016-camera-remains-paused-after-rawvideo-reinstall) records the investigation; artifacts: `app/build/ci/device-testing/debug-report-01/`. D-04/D-10/D-11 media checks not exercised |
+| 2026-11-18 | P-016 pre-build documentation validation | Passed, host-observed | 21 Markdown files, 59 local links, 0 missing targets/device-identifier issues; HANDOFF 114 lines; `git diff --check` clean. No camera/runtime acceptance implied |
+| 2026-11-18 | P-016 correction local test/lint/APK build | Passed, local build-verified | `.\gradlew.bat :core:model:test testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace --console=plain`: BUILD SUCCESSFUL in 4m12s. XML: 12 model tests (task UP-TO-DATE), 5 new app state tests executed, 0 failures/errors/skips; lint 0 errors/16 warnings. APK at `app/build/outputs/apk/debug/app-debug.apk`; other Android-module tests NO-SOURCE. CI/physical retest pending |
+| 2026-11-18 | P-016 final-source revalidation | Passed, local build-verified | Same full command BUILD SUCCESSFUL in 49s after UI busy-state alignment; app tests executed again, model task UP-TO-DATE; no physical retest |
+| 2026-11-18 | P-016 prepublication checks | Passed, host-observed | 21 Markdown files / 59 local links / 0 issues, HANDOFF 115 lines, `git diff --check` clean; final XML reports 12 model + 5 app tests, no failures, lint 0 errors / 16 warnings |
 
-Android `testDebugUnitTest` tasks were `NO-SOURCE` in all Android modules. Only
-the nine `:core:model:test` tests executed; do not describe this as camera engine,
-media, DataStore, log, Compose or instrumentation test coverage. Automated
-coverage is unchanged: H-04 through H-08 unverified, D-04/05/09 through D-17
-untested. The first D-series checks ran manually on-device on 2026-11-18 and are
-recorded above with screenshots and pulled media; manual results do not create
-regression tests.
+Historical CI test reports cover only `:core:model:test` (nine initially,
+12 in RAW+Video CI); their Android `testDebugUnitTest` tasks were `NO-SOURCE`.
+P-016 adds five passing local app state tests (mode availability and configuration
+equality), not Camera2, media, DataStore, logging, Compose or instrumentation
+tests. H-04 through H-08 remain unverified; advanced physical
+checks D-04/05/09 through D-17 remain untested or blocked by P-016. The earlier
+manual D-series passes do not verify the latest APK or create regression tests.
 
 ## Verified APK builds and reports
 
@@ -154,7 +184,28 @@ implies device verification beyond what the execution record states. Fresh CI
 keys can require uninstall/reinstall between builds; preserve needed app data
 first. All generated downloads are ignored by Git.
 
-### RAW build (current install candidate)
+### RAW+Video build (installed; device verification BLOCKED)
+
+- Run: [44251120868](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44251120868),
+  source commit `409c5d9` (RAW + Video). CI-success conclusion and both artifact
+  upload steps independently re-queried read-only on 2026-11-18.
+- Local APK: `app/build/ci/44251120868/camera3-debug-apk/app-debug.apk`;
+  62,235,613 bytes, SHA256
+  `685ad39061ea10f34987651602bafa9b6bd8ba144a868215854ad5d9fcc628ef`.
+  Size and hash independently rechecked read-only on 2026-11-18.
+- Build-tools 36.0.0 checks re-run: `apksigner verify --verbose` passed with
+  v2 signing; `aapt2 dump badging` confirmed `dev.camera3.app`, versionCode 1 /
+  `0.1.0-dev`, Camera3 label, targetSDK36.
+- Local reports: `app/build/ci/44251120868/verification-reports/`; read-back
+  confirmed 12 model tests / 0 failures / 0 ignored, lint 0 errors / 17 warnings.
+  This is CI artifact inspection, not a new build or physical-camera test.
+- **Installed** via the authorized reinstall recorded above; both camera and
+  microphone permissions are granted in the saved device report.
+- **Device verification BLOCKED by P-016:** not verified functional and **not a
+  current working baseline**. Restore and verify real preview before RAW/DNG,
+  playable MP4/finalization/orientation and audio/silent-mode acceptance checks.
+
+### RAW build (historical; superseded install candidate)
 
 - Run: [44247877745](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44247877745),
   source commit `7905a89` (RAW/DNG pipeline + docs); a foreground watch
@@ -167,10 +218,11 @@ first. All generated downloads are ignored by Git.
 - Build-tools checks passed: `apksigner verify` (v2 scheme) and
   `aapt2 dump badging`: `dev.camera3.app`, versionCode 1 / `0.1.0-dev`,
   Camera3 label, debuggable.
-- Device install pending (phone disconnected at the attempt). The runner debug
-  key differs from the installed build, so expect the same
-  `INSTALL_FAILED_UPDATE_INCOMPATIBLE` → uninstall/reinstall path and the
-  settings reset (quality 95%, grid OFF) on first launch.
+- Device install was pending (phone disconnected at the attempt); the installed
+  RAW+Video build above supersedes this candidate. At that checkpoint the runner
+  debug key differed from the installed build, so the expected path was
+  `INSTALL_FAILED_UPDATE_INCOMPATIBLE` → uninstall/reinstall, with a settings
+  reset (quality 95%, grid OFF) on first launch.
 - Device verification plan for this build (D-016): RAW chip visibility per
   lens, toggle → close/reopen → 3-stream session probe outcome, capture saving
   a JPEG+DNG pair, DNG opening/rotation, honest failure path, plus the
@@ -188,8 +240,9 @@ first. All generated downloads are ignored by Git.
 - Build-tools 36.0.0 checks passed: `apksigner verify --verbose` (v2 signature)
   and `aapt2 dump badging`: `dev.camera3.app`, versionCode 1 / `0.1.0-dev`,
   minSDK35 / targetSDK36, Camera3 label, debuggable, launcher MainActivity.
-- Device install still pending (phone disconnected at the first attempt);
-  the deferred UI checks run after this build is installed.
+- Installation was pending at the first attempt, then succeeded via the
+  uninstall/reinstall recorded above. Superseded by the installed RAW+Video
+  build; deferred UI checks are still unverified.
 
 ### First build (provenance)
 
@@ -210,9 +263,10 @@ first. All generated downloads are ignored by Git.
 ## First device baseline session (2026-11-18)
 
 Environment: user's phone connected over USB with debugging authorized; Camera3
-`0.1.0-dev` debug APK installed from the verified artifact. App property
-observation: Android 16 / API 36 with spoofed Samsung props (a35x board,
-SM-S711B model string, mixed fingerprint) consistent with the user-reported
+`0.1.0-dev` debug APK installed from the first verified artifact (`9174a63`).
+This section is historical, not evidence that the latest RAW+Video build works.
+App property observation: Android 16 / API 36 with spoofed Samsung props (a35x
+board, SM-S711B model string, mixed fingerprint) consistent with the user-reported
 Magisk/modified-camera-library environment. Treat all HAL-reported levels and
 capabilities as platform claims (P-004), backed up here by session, result and
 saved-file evidence.

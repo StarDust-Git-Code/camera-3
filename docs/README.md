@@ -62,3 +62,9 @@ artifact if one exists. Never invent an artifact path.
 No OpenCode configuration file or external documentation directory was created.
 The continuity mechanism here is a root `AGENTS.md` plus explicit Markdown reads
 and updates, not an automatic background synchronization service.
+
+## Reference material
+
+- [REFERENCE-PROJECTS.md](REFERENCE-PROJECTS.md) — open-source camera projects
+  the user shared (OpenCineCam, CinemaCamera, PhotonCamera, Open Camera), with
+  license implications and borrowable ideas. Not a canonical document.

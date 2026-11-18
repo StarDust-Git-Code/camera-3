@@ -15,7 +15,7 @@ User requested GitHub Actions as the APK compilation path.
 - SDK command-line tools are installed, but `sdkmanager` was not on PATH.
 - Standalone `gradle` and `kotlinc` were not on PATH. This does not prevent a
   properly bootstrapped wrapper/Kotlin Gradle build.
-- Wrapper, Android source and nine passing model unit tests now exist. Actions
+- Wrapper, Android source and passing model unit tests now exist. Actions
   produced a verified debug APK; production release signing is not configured.
   Git is installed; `gh` is not on PATH. Git Credential
   Manager lists the repository-owner account, without exposing credentials.
@@ -27,8 +27,9 @@ unchanged.
 
 The user needs to connect the A35, enable Developer options/USB debugging, and
 accept this computer's debugging authorization. Cable, USB mode and Windows
-driver may matter. Last recorded ADB checks found no device at all, not an
-"unauthorized" entry.
+driver may matter. The earlier baseline session was device-verified; RAW+Video
+was subsequently installed but fails before camera open (P-016). Latest ADB
+foreground query during correction work found the test phone disconnected.
 
 Read-only PowerShell checks:
 
@@ -55,8 +56,8 @@ adb shell dumpsys media.camera
 ```
 
 This is not a replacement for querying CameraCharacteristics inside the actual
-app process or testing an output pipeline. No connected-device property/dumpsys
-command has run yet.
+app process or testing an output pipeline. Saved baseline/P-016 reports under
+ignored `app/build/ci/device-testing/` contain actual device queries; see TESTING.
 
 ## Application commands
 
@@ -73,8 +74,9 @@ The wrapper now exists. Run from the workspace or CI:
 
 Actions run 44235722163 successfully built commit `9174a63`. The workflow uses Bash/Ubuntu to run
 `:core:model:test testDebugUnitTest :app:lintDebug :app:assembleDebug` and uploads
-`camera3-debug-apk` plus `verification-reports`. Local `local.properties` must
-point to the SDK if local checks are needed; it is ignored and not published.
+`camera3-debug-apk` plus `verification-reports`. Local SDK location may come from
+`ANDROID_HOME`/`ANDROID_SDK_ROOT` (both re-verified on this host) or ignored
+`local.properties`; that file is currently absent and is not required here.
 
 ## GitHub Actions
 

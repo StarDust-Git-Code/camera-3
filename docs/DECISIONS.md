@@ -271,6 +271,44 @@ the older proposals below are retained as design history.
   engine run and finalized exactly once; a recording cut short by leaving the
   app is still published best-effort.
 
+## D-018: Preview-owned rotation and complete session configuration identity
+
+- **Status:** implemented/local build-verified source correction, 2026-11-18;
+  CI/device verification pending. P-016's runtime cause is not yet confirmed
+  by a retest. Local reports: 12 model + 5 app tests, 0 failures; lint 0/16.
+- **Problem:** Video introduced `Application.display` before `setSource` for
+  both modes. A non-display context throws; SurfaceView can catch the callback
+  exception, leaving no desired camera source and no fatal app crash. Its
+  configuration key also omitted RAW/audio changes, and Photo availability
+  depended on already being in Photo mode.
+- **Evidence inspected:** local SDK `sources/android-36.1/android/app/ContextImpl.java`
+  lines 3284–3306 and `android/view/SurfaceView.java` lines 1395–1438; actual
+  source diff and saved P-016 device artifacts. Platform source behavior is not
+  proof that this exception was captured on the modified test OS.
+- **Choice:** SurfaceView supplies its own display's `Surface.ROTATION_*`
+  value to `attachSurface`; the ViewModel converts to degrees without retaining
+  a UI context. A genuinely absent view display falls back to rotation 0 with
+  that absence explicitly logged. Recording orientation still freezes at attach.
+- **Configuration:** the preview subtree is keyed by camera ID, mode and the
+  complete active Photo/Video configuration; changing RAW/audio replaces the
+  session even when preview dimensions do not change. Runtime telemetry, grid
+  and JPEG quality do not change this identity. Inactive configuration getters
+  remain null; independent `photoUsable`/`videoUsable` drive mode availability.
+  Lens/mode/RAW changes are disabled in the UI whenever the model is busy
+  (capturing or recording), rather than show enabled actions the model rejects.
+- **Alternatives:** do not conceal an invalid Application context with a blanket
+  exception-to-zero fallback or retain Activity in the ViewModel. Live-surface
+  rebinding could avoid subtree replacement, but adds ownership/order complexity;
+  retained-source replay after a rejected attachment remains a separate follow-up
+  only if runtime evidence requires it.
+- **Verification:** bounded P-016 callback/attachment/reconcile logs, pure-state
+  regression tests, local/CI compilation, then fresh preview, RAW toggles and
+  Photo↔Video round trips on the actual phone. State tests cannot prove callback
+  ordering, context safety at runtime or working saved outputs.
+- **Review caveats:** rapid queued RAW preference updates and late surface
+  callbacks still need stress tests; the complete-key fix is not a new proof
+  of their ordering. Handler serialization and identity-checked detach remain.
+
 ### New-decision template
 
 Add the next ID with status, date, problem, chosen approach, inspected sources/
