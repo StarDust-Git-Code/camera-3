@@ -147,8 +147,8 @@ the older proposals below are retained as design history.
 
 ## D-014: GitHub Actions APK compilation
 
-- **Status:** explicit user instruction, 2026-11-18; workflow implemented,
-  remote execution not yet verified.
+- **Status:** explicit user instruction, 2026-11-18; workflow implemented and
+  build-verified by run 44235722163 at commit `9174a63`.
 - **Repository:** `https://github.com/StarDust-Git-Code/camera-3` (public;
   API reports size zero and `git ls-remote` returned no refs before publishing).
 - **Choice:** `.github/workflows/android.yml`, Ubuntu 24.04/JDK 21, pinned action
@@ -157,6 +157,32 @@ the older proposals below are retained as design history.
 - **Consequence:** only a successful Actions run proves CI compilation. A debug
   runner-generated signing key can change between runs; stable signing is future
   explicit setup. No device test is implied by CI success.
+- **Evidence:** nine model tests passed, lint 0 errors/17 warnings, debug APK and
+  verification-report artifacts uploaded; downloaded APK signature and API35
+  minimum verified locally. TESTING records exact paths, IDs and hash.
+- **Reviewed warnings:** retain the compatible dependency/API36 pins for the
+  baseline rather than mixing major upgrades into delivery. Data extraction rules
+  and action-runtime maintenance are explicit follow-ups in P-010; no lint
+  baseline or blanket warning suppression was added.
+
+## D-015: Capability and extension naming from the compile-time platform
+
+- **Status:** engineering decision, 2026-11-18; local compile passed; device
+  re-verification pending (P-011/P-012).
+- **Problem:** the first device session rendered `CAPABILITY_5`/`CAPABILITY_19`
+  because `CameraDiscovery` mapped only part of the platform's capability
+  constants, and extension IDs appeared without names.
+- **Approach:** map every named `REQUEST_AVAILABLE_CAPABILITIES` constant of
+  compileSdk 36, keep `CAPABILITY_n` fall-through for future/unknown values,
+  and show extension IDs as raw API IDs. Constant values are verified with
+  `javap -constants` against the local `android-36/android.jar` rather than
+  recalled from memory.
+- **Device facts locked in:** extension support is BEAUTY(1) and BOKEH(2) on
+  all four lenses; NIGHT(4) is not advertised, so the Night tab has no honest
+  extension pipeline on this device (M3 must plan an alternative or keep it
+  disabled with that reason).
+- **Consequence:** naming changes are diagnostic labels only; per-lens key and
+  range revalidation still gates any newly exposed control (D-004).
 
 ### New-decision template
 

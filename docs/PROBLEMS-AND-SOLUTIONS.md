@@ -1,35 +1,35 @@
 # Problems, investigations and solutions
 
 Last updated: 2026-11-18. This is an evidence ledger, not a list of imagined app
-bugs. Initial implementation exists; compile and physical-runtime checks are pending.
+bugs. Initial implementation is build-verified; the first device session
+verified the baseline Photo path; two runtime findings were fixed and await the
+next device run.
 
 ## P-001: No connected physical device
 
-- **Status:** open; blocks physical-device verification, not documentation or
-  all host-side implementation.
-- **Observed:** recorded `adb devices -l` commands returned no device rows.
-- **Impact:** cannot verify Android API, modified-camera behavior, LEVEL_3,
-  capabilities, images, recordings or runtime stability on the A35.
-- **Actions taken:** checked ADB discovery; documented the required connection.
-  No driver/cable/root changes were made.
-- **Likely next investigation:** connect USB, enable debugging, authorize this
-  computer; recheck. If still absent, inspect cable/USB mode/driver before more
-  intrusive actions.
-- **Resolution evidence required:** an authorized device entry, correct model/API
-  queries and actual application camera tests. Do not close based on a model name.
+- **Status:** resolved, device-verified 2026-11-18.
+- **Observed:** recorded `adb devices -l` commands returned no device rows until
+  the user connected and authorized the phone.
+- **Impact:** had blocked all physical-device verification.
+- **Resolution evidence:** authorized device listed; `getprop` read Android 16 /
+  API 36 with spoofed Samsung props (a35x board, SM-S711B model string, mixed
+  fingerprint) matching the user-reported Magisk/modified-library environment;
+  verified APK installed (`install -r` Success) and the baseline device session
+  recorded in TESTING/CAMERA-CAPABILITIES. Device serial is deliberately kept
+  out of documentation.
 
 ## P-002: There is no existing Android project
 
-- **Status:** scaffold implemented; successful-build closure pending.
+- **Status:** resolved, build-verified by Actions run 44235722163 at `9174a63`.
 - **Observed:** workspace read/forced directory listing showed zero entries
   before documentation creation.
 - **Impact:** nothing can be built, installed or modified as an existing app.
 - **Approach chosen:** document scope, then create a reproducible modular Android
   project incrementally, beginning with working Photo.
 - **Completed mitigation:** wrapper, six Gradle modules, baseline Photo/settings/
-  diagnostics source and model policy tests now exist. CI compilation is pending.
-- **Resolution evidence required:** actual build files/source and a successful
-  relevant build command.
+  diagnostics source and model policy tests now exist. CI compilation passed.
+- **Resolution evidence:** full debug APK build, nine passing model tests,
+  uploaded/downloaded artifacts and verified package/signature (TESTING).
 
 ## P-003: Plan mode initially prevented project-local files
 
@@ -53,8 +53,14 @@ bugs. Initial implementation exists; compile and physical-runtime checks are pen
   pipeline or compatible combined output configuration.
 - **Approach:** separate reported support, implementation, session validation,
   capture-result feedback and saved-media evidence.
+- **Observed so far (2026-11-18):** all four cameras report LEVEL_3 with RAW/
+  manual/burst/reprocessing flags, and the baseline JPEG path produces valid
+  12.48 MP files with genuine per-shot result metadata on this modified stack,
+  so the reported flags are functional for the Photo path. Advanced pipelines
+  (RAW/manual/extensions/recording) remain unverified until implemented and run.
 - **Resolution evidence required:** per-camera characteristics plus relevant
-  functioning sessions/results/files. Never solve by hardcoding the report.
+  functioning sessions/results/files for each advanced pipeline. Never solve by
+  hardcoding the report.
 
 ## P-005: Community connector unavailable
 
@@ -86,13 +92,12 @@ bugs. Initial implementation exists; compile and physical-runtime checks are pen
 
 ## P-008: Initial compiler compatibility selection
 
-- **Status:** corrected before build, 2026-11-18; compilation pending.
+- **Status:** corrected before build, 2026-11-18; full compilation subsequently
+  passed in run 44235722163 at `9174a63`.
 - **Finding:** Kotlin 2.2.21's official fully supported AGP range stops at 8.11.1;
   initial scaffold uses AGP 8.13.2. No runtime/build failure was fabricated.
 - **Fix:** use Kotlin/Compose compiler 2.3.21, whose documented range covers
   AGP 8.13.2 / Gradle 8.13. See D-013 and SOURCES.
-
-### Investigation template
 
 ## P-009: First CI run has no sdkmanager on PATH
 
@@ -106,7 +111,80 @@ bugs. Initial implementation exists; compile and physical-runtime checks are pen
 - **Independent source review:** parenthesized rotation formula's inline `if`
   to avoid Kotlin expression precedence; torch now requires both hardware and
   writable flash key; added a ninth policy regression test and line-ending rules.
-- **Status:** corrected workflow/source awaiting rerun; not yet a verified fix.
+- **Status:** resolved by run 44235722163 at `9174a63`: SDK steps, model tests,
+  lint, APK compilation and both artifact uploads all passed.
+
+## P-010: Successful-build warnings and maintenance follow-ups
+
+- **Observed:** run 44235722163 succeeded, but lint reports 0 errors/17 warnings;
+  compiler reports four warnings, and Actions reports three maintenance annotations.
+- **Lint assessment:** 15 notices concern deliberately pinned dependency/tool
+  versions or API36 targeting (D-013/014). Keep the tested compatible baseline;
+  plan/test upgrades separately. One `UseKtx` suggestion is stylistic. One
+  `DataExtractionRules` warning needs explicit Android12+ cloud/device-transfer
+  exclusions for private settings/logs; existing `allowBackup=false` is not
+  equivalent across all device-transfer implementations. This is a policy
+  follow-up, not a demonstrated data leak or runtime failure.
+- **Compiler assessment:** three unnecessary safe calls on display and the
+  deprecated non-AutoMirrored ReceiptLong icon are nonblocking cleanup items.
+- **Actions assessment:** Node20 actions are forced onto Node24; setup-java v4
+  is deprecated; gradlew has Git mode 100644 and setup-gradle repairs execution
+  permission automatically. Migrate to verified supported action SHAs and set
+  executable mode in a separate tested maintenance change.
+- **Status:** open, nonblocking for debug compilation; warnings not suppressed.
+  Full reports and log are downloaded under `app/build/ci/44235722163/`.
+
+## P-011: Duplicate close exception logs during camera shutdown
+
+- **First observed:** 2026-11-18 device session, `Camera3/Close` logcat lines.
+- **Affected:** `dev.camera3.app` 0.1.0-dev at `9174a63` on the connected phone;
+  harmless to function, noisy in logs.
+- **Reproduction:** close/reopen or background the app; every `reconcile()` that
+  runs while a run is closing re-calls `close(run)`, and each call retries
+  `stopRepeating()` on the already-closed session, logging a caught
+  `IllegalStateException` with stack trace per repetition.
+- **Expected:** at most one teardown attempt per session instance.
+- **Fix:** `CameraEngine.close()` now nulls `run.session` while tearing it down
+  (handler-confined, after `closing = true`; both `updateRepeating()` and
+  `capture()` guard on `run.closing`, so no null dereference). Device closing
+  remains re-entrant so an in-flight `onOpened` still closes a still-opening
+  device.
+- **Status:** fix compile-verified locally (`:core:camera:compileDebugKotlin`
+  BUILD SUCCESSFUL); device re-verification of clean logs pending the next
+  install.
+
+## P-012: Unmapped capability constants in diagnostics
+
+- **First observed:** 2026-11-18 device session; diagnostics and discovery logs
+  showed `CAPABILITY_5` and `CAPABILITY_19` on all four cameras.
+- **Affected:** `dev.camera3.app` 0.1.0-dev at `9174a63`.
+- **Root cause:** `CameraDiscovery.capabilityName()` mapped only a subset of
+  `REQUEST_AVAILABLE_CAPABILITIES` constants.
+- **Verification method:** read constant values with `javap -constants` against
+  the compile-time `android-36/android.jar` (not from memory): 5 =
+  READ_SENSOR_SETTINGS, 19 = STREAM_USE_CASE, and the complete API-36 set
+  (16 ULTRA_HIGH_RESOLUTION_SENSOR, 17 REMOSAIC_REPROCESSING, 18
+  DYNAMIC_RANGE_TEN_BIT, 20 COLOR_SPACE_PROFILES) was mapped; unknown future
+  values still fall through to `CAPABILITY_n`.
+- **Impact on findings:** the device capability list is now fully named; no
+  behavior change beyond labeling.
+- **Status:** fix compile-verified locally; device re-verification pending the
+  next install.
+
+## P-013: Corrupt Gradle cache blocked the local fix compile
+
+- **First observed:** 2026-11-18 during the local compile of the P-011/P-012
+  fixes on this host.
+- **Observed:** first `:core:camera:compileDebugKotlin` run failed after 4m14s:
+  `Could not download bundletool-1.18.1.jar ... Tag mismatch` (checksum
+  verification of the cached artifact).
+- **Fix:** deleted
+  `%USERPROFILE%\.gradle\caches\modules-2\files-2.1\com.android.tools.build\bundletool`
+  and reran; re-download succeeded and the task reported BUILD SUCCESSFUL in
+  1m17s (27 tasks). The harness surfaced a contradictory `exit code 1` on the
+  successful run; treated as a reporting artifact, noted here honestly, and CI
+  remains the authoritative build gate.
+- **Status:** resolved for this host/session; no project file changed.
 
 ### Future issue template
 

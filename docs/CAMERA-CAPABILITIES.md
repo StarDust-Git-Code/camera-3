@@ -1,6 +1,7 @@
 # Camera capabilities and availability policy
 
-Last updated: 2026-11-18. No physical camera query or functional probe has run.
+Last updated: 2026-11-18. First physical-device query and baseline probe
+completed on the connected phone; findings below, evidence in TESTING.
 
 ## Implemented baseline discovery / policy
 
@@ -13,7 +14,7 @@ then requires configuration success. Zoom/torch check exposed keys/modes;
 unsupported combinations enter an explicit error/retry state, not fake preview.
 Lower-level auxiliary lenses are allowed only on an eligible phone (D-003).
 RAW, manual controls, extensions and recording capabilities are read-only claims
-until their pipelines exist. No real device findings have been added below.
+until their pipelines exist. First real device findings are in the table below.
 
 ## LEVEL_3-only startup requirement
 
@@ -124,16 +125,37 @@ Store failed-combination evidence with the software/build/config identity.
 Revalidate after a camera-library or OS change; do not permanently blacklist an
 entire lens based on one stale session failure.
 
-## Current device findings
+## Current device findings (2026-11-18, device-observed)
 
-| Item | Evidence/status |
+Observed through the app's public Camera2 discovery on the connected phone.
+Build identity (spoofed properties noted): Android 16 / API 36, model string
+SM-S711B on an a35x device board; fingerprint mixes `a35x` with `S711B...`,
+consistent with the user's Magisk/modified-library report. Serial is excluded
+from documentation. File evidence: TESTING execution record.
+
+| Item | Observed value |
 | --- | --- |
-| Device/model | Samsung Galaxy A35, user-reported |
-| One UI / modifications | One UI 8.5, Magisk, unlocked bootloader/camera library, user-reported |
-| Android API/build fingerprint | Not queried |
-| Camera IDs/levels | Not queried |
-| RAW/manual/HDR/high-FPS/extensions | Not queried or tested |
-| Encoders/output combinations | Not queried or tested |
+| Public cameras | 4: ID 0 BACK, ID 1 FRONT, ID 2 BACK, ID 3 FRONT |
+| Reported hardware level | LEVEL_3 on all four (platform claim, not a pipeline proof) |
+| Eligibility log | `LEVEL_3 device eligible=true, baselineCamera=0` |
+| Capabilities (all four) | BACKWARD_COMPATIBLE, MANUAL_SENSOR, READ_SENSOR_SETTINGS, MANUAL_POST_PROCESSING, BURST_CAPTURE, YUV_REPROCESSING, RAW, STREAM_USE_CASE |
+| Extra on ID 0 | CONSTRAINED_HIGH_SPEED_VIDEO (labeled HIGH_SPEED_VIDEO in UI) |
+| Baseline JPEG (policy pick, 4:3) | ID 0 4080×3060, ID 1 1920×1440, ID 2 3264×2448, ID 3 3408×2556 |
+| Preview (policy pick) | 1440×1080 on every lens |
+| Zoom ratio range | ID 0/ID 2: 1.0…8.0; ID 1/ID 3: 1.0…4.0 |
+| Extension IDs (all four) | 1 = BEAUTY/FACE_RETOUCH, 2 = BOKEH; NIGHT(4), HDR(3), AUTOMATIC(0) not advertised |
+| Physical IDs | None reported on any camera (no sub-lens topology exposed) |
+| RAW/manual pipelines | Advertised, not implemented; diagnostics-only until M3 |
+| Video/encoder combos | Not tested; recording pipelines not implemented |
 
-Populate facts here only after actual queries/tests, and link evidence from
-[TESTING.md](TESTING.md) and [PROGRESS.md](PROGRESS.md).
+M3 planning consequences (to re-verify before implementation):
+
+- Portrait has a genuine BOKEH (ID 2) extension path on this device.
+- The Camera2 NIGHT extension (ID 4) is not advertised, so the Night tab has no
+  honest extension pipeline on this device; keep it disabled with that reason
+  unless a different real pipeline is implemented later.
+- READ_SENSOR_SETTINGS/STREAM_USE_CASE/RAW advertise a manual/RAW path; key
+  ranges must be revalidated per lens before manual controls are exposed.
+
+Populate additional facts here only after actual queries/tests, and link
+evidence from [TESTING.md](TESTING.md) and [PROGRESS.md](PROGRESS.md).

@@ -1,7 +1,7 @@
 # Logging and diagnostics
 
 Last updated: 2026-11-18. Initial logger, viewer, report and sharing source exists;
-compilation and runtime validation are pending.
+compilation passed in Actions run 44235722163; runtime validation is pending.
 Development issues are recorded in [PROBLEMS-AND-SOLUTIONS.md](PROBLEMS-AND-SOLUTIONS.md).
 
 ## Implemented baseline

@@ -1,7 +1,9 @@
 # Testing and evidence
 
-Last updated: 2026-11-18. Initial source and nine model unit tests exist. First
-CI attempt failed during SDK setup, before application compilation/tests.
+Last updated: 2026-11-18. Debug build, nine model tests and lint passed through
+GitHub Actions. APK metadata/signing checked locally. First physical-device
+baseline session completed on the connected phone; remaining UI checks deferred
+to the next install (see the device session section).
 
 ## Evidence rules
 
@@ -19,10 +21,10 @@ CI attempt failed during SDK setup, before application compilation/tests.
 
 | Target | Status | Intended use |
 | --- | --- | --- |
-| Samsung Galaxy A35 | User-reported; not connected/queried in recorded ADB checks | Primary camera/runtime/quality validation |
-| One UI 8.5 / modified camera stack | User-reported, exact build/module unknown | Validate exposed versus effective Camera2 behavior |
-| Android 15/API 35 | Required minimum, actual phone API not yet queried | Minimum-platform compatibility |
-| Later Android versions | Supported target range, untested | API compatibility and runtime restrictions |
+| Samsung Galaxy A35 | User-reported; connected and queried 2026-11-18 (see execution record) | Primary camera/runtime/quality validation |
+| One UI 8.5 / modified camera stack | User-reported; device property query showed spoofed build props (Android 16 props on a35x board with S711B model string) | Validate exposed versus effective Camera2 behavior |
+| Android 15/API 35 | Required minimum | Minimum-platform compatibility |
+| Android 16/API 36 | Device-observed on the connected phone | Current runtime target; baseline session recorded below |
 | Emulator/test fakes | Not run | UI/permission/gating logic only, not proof of real hardware features |
 
 Before a phone run, record Android release/API, build identity, selected camera
@@ -109,8 +111,89 @@ work. DOC-04: platform/device constraints agree across canonical files.
 | 2026-11-18 | ADB recheck | No connected device | `adb devices -l` again returned only the list header |
 | 2026-11-18 | Gradle wrapper verification | Passed | Official Gradle 8.13 JAR SHA256 matched; distribution checksum pinned |
 | 2026-11-18 | Remote inspection | Empty public target | GitHub API size=0; `git ls-remote` returned no repository refs |
-| 2026-11-18 | H-01 / H-02 / policy tests | Pending | GitHub Actions workflow and test source exist; execution not claimed |
+| 2026-11-18 | H-01 / H-02 / policy tests, initial checkpoint | Pending then | Workflow/test source existed; subsequent successful results are below |
 | 2026-11-18 | First CI infrastructure run | Failed before compile | [Run 44235279035](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44235279035), commit 9e4686c: sdkmanager missing, exit127; explicit SDK setup added, rerun pending |
+| 2026-11-18 | Second CI run / H-01 | Passed | [Run 44235722163](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44235722163), commit 9174a63: tests/lint/assembleDebug and both uploads passed; build job 3m39s, Gradle 2m53s |
+| 2026-11-18 | Model policy tests / partial H-03 | Passed | Downloaded Gradle HTML report: 9 tests, 0 failures, 0 ignored; no camera/platform execution |
+| 2026-11-18 | H-02 / lint | Passed with warnings | Downloaded lint report: 0 errors, 17 warnings; four Kotlin compiler warnings; assessment in P-010 |
+| 2026-11-18 | APK artifact inspection | Passed, host-observed | Downloaded APK; apksigner v2 signature verification passed, aapt2 confirmed dev.camera3.app / minSDK35 / targetSDK36 |
+| 2026-11-18 | ADB resume recheck | No connected device | Explicit SDK platform-tools adb devices -l returned only the device-list header |
+| 2026-11-18 | DOC-01/02/03 final build checkpoint | Passed | 20 Markdown files, 56 local links, 0 heading/link issues; 72-line handoff; git diff --check passed |
+| 2026-11-18 | ADB device query | Connected and authorized | `adb devices -l` listed the phone; `getprop` read release 16 / SDK 36, a35x board with SM-S711B model string and mixed fingerprint (spoofed props, P-001 closed) |
+| 2026-11-18 | APK install | Passed | `adb install -r` on the verified APK returned "Performing Streamed Install / Success" |
+| 2026-11-18 | D-01 permissions/eligibility | Passed | User granted camera permission; discovery log: all four IDs LEVEL_3, `eligible=true, baselineCamera=0`; no fallback UI shown |
+| 2026-11-18 | D-02 preview | Passed | Portrait 4:3 fitted preview, rule-of-thirds grid overlay, front preview mirrored correctly, zoom pill/slider visible; screenshots 02/08 |
+| 2026-11-18 | D-03 JPEG capture/storage | Passed | Four photos in `DCIM/Camera3`; pulled samples 4080×3060 (12.48 MP), EXIF orientation 6, model string, real ISO 152–222; screenshots and pulled JPEGs saved under `app/build/ci/device-testing/` |
+| 2026-11-18 | D-07 torch | Passed | Torch on/off driven on ID 0; `Controls` log lines + user-confirmed visible LED; no error state |
+| 2026-11-18 | D-08 zoom/lens switching | Passed | Zoom 1.0→8.0 applied repeatedly without rejection; all four camera chips opened with close-before-reopen sequencing (epoch 9→16 in log); "Closed epoch" before each "Opening ID" |
+| 2026-11-18 | D-18 lifecycle | Passed | Repeated background/resume cycles clean (`Lifecycle` foreground lines paired); no crash; observed process restart was a normal user close, not an ANR/force-stop |
+| 2026-11-18 | D-19/D-20 settings + diagnostics UI | Partially passed | Settings render/persist (quality 100%, grid ON after user changes); diagnostics render real per-lens data (levels, zoom ranges, extension IDs 1/2, session ISO/exposure); Logs screen and share/export intent not yet exercised |
+| 2026-11-18 | JPEG quality setting effect | Consistent (not isolated) | Same 12.48 MP output across captures grew 1.79 → 4.66 → 9.38 MB while the user moved the slider to 100%; final large files consistent with max-quality encoding; no per-capture quality log line exists |
+| 2026-11-18 | Local fix compile | Passed | `:core:camera:compileDebugKotlin` BUILD SUCCESSFUL in 1m17s after P-011/P-012 fixes; corrupt bundletool cache removed first (P-013); CI rerun remains the authoritative gate |
 
-No H-series or D-series test has run. Update this table with actual outcomes,
-not expected results.
+Android `testDebugUnitTest` tasks were `NO-SOURCE` in all Android modules. Only
+the nine `:core:model:test` tests executed; do not describe this as camera engine,
+media, DataStore, log, Compose or instrumentation test coverage. Automated
+coverage is unchanged: H-04 through H-08 unverified, D-04/05/09 through D-17
+untested. The first D-series checks ran manually on-device on 2026-11-18 and are
+recorded above with screenshots and pulled media; manual results do not create
+regression tests.
+
+## First verified APK and reports
+
+- Run: [44235722163](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44235722163),
+  full source commit `9174a634e8fdaa38cdedf3745909f718157e65b3`.
+- Command: `bash ./gradlew :core:model:test testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace`.
+- [camera3-debug-apk artifact](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44235722163/artifacts/14397496809):
+  ID `14397496809`, compressed archive 16,592,329 bytes; expires
+  `2026-12-02T04:15:57Z`. GitHub sign-in may be required. Unzip `app-debug.apk`.
+- [verification-reports artifact](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44235722163/artifacts/14396794423):
+  ID `14396794423`, expires `2026-12-02T04:15:59Z`.
+- Local APK: `app/build/ci/44235722163/apk/app-debug.apk`;
+  62,170,037 bytes (59.29 MiB), SHA256
+  `3ad2038f304eb4cd9d961ce018ec8ffe59c5027018f21d8bf37615da5a59d491`.
+- Local reports: `app/build/ci/44235722163/reports/`; full downloaded CI log:
+  `app/build/ci/44235722163/actions.log`. All generated downloads are ignored by Git.
+- Using installed Android SDK build tools 36.0.0, `apksigner.bat verify --verbose`
+  passed (one signer, v2 signature), and `aapt2.exe dump badging` passed:
+  `dev.camera3.app`, versionCode1 / `0.1.0-dev`, minSDK35 / targetSDK36,
+  Camera3 label, debuggable, `dev.camera3.app.MainActivity` launcher.
+- This is a runner-debug-signed build, not production release signing, install
+  evidence or proof of preview/capture/saved-media behavior. Fresh CI keys can
+  require uninstall/reinstall when changing builds; preserve needed app data first.
+
+## First device baseline session (2026-11-18)
+
+Environment: user's phone connected over USB with debugging authorized; Camera3
+`0.1.0-dev` debug APK installed from the verified artifact. App property
+observation: Android 16 / API 36 with spoofed Samsung props (a35x board,
+SM-S711B model string, mixed fingerprint) consistent with the user-reported
+Magisk/modified-camera-library environment. Treat all HAL-reported levels and
+capabilities as platform claims (P-004), backed up here by session, result and
+saved-file evidence.
+
+Verified during the session:
+
+- Permission, LEVEL_3 gate and baseline camera selection behaved as designed.
+- Preview, grid overlay, torch, zoom, all four lens chips, capture+storage,
+  background/resume and settings persistence worked with no crash.
+- Saved JPEGs are real 4080×3060 4:3 photos with correct EXIF orientation 6 and
+  genuine per-shot ISO metadata; the quality slider visibly changes file size.
+- App persistent logs (`camera-0.log`) record discovery, eligibility, epoch
+  transitions, controls, captures and storage; pulled for evidence.
+
+Deferred to the next install (user was actively using the phone; adb input is
+suspended while the phone is in use, verified foreground before any tap):
+
+- Logs screen render, log filter/clear actions and the export/share intent
+  (D-20 completion).
+- "View full capabilities" detail screen render.
+- One fresh capture with the quality-100 setting to isolate the quality effect.
+- Re-verify the P-011 close-log fix and the P-012 capability labels after the
+  rebuilt APK is installed.
+
+Process note: before any `adb shell input tap`, confirm the target app is
+foreground (`topResumedActivity`) and re-check after navigation; during this
+session the user multitasked, and two taps landed in unrelated apps (Play
+Store, Instagram) with no data changed. Screenshots are stored under ignored
+`app/build/ci/device-testing/`.

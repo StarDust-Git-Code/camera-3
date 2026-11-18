@@ -1,7 +1,7 @@
 # UI/UX direction
 
 Last updated: 2026-11-18. Initial native Compose camera/settings/diagnostics/log
-screens exist. Compilation and visual comparison on a device are pending.
+screens compile successfully. Runtime and visual comparison on a device are pending.
 
 ## Implemented reference adaptation
 

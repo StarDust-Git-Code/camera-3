@@ -1,7 +1,7 @@
 # Architecture
 
 Last updated: 2026-11-18. Six proposed modules now exist. Initial Photo engine,
-settings and logger are implemented but not yet compiled or device-verified.
+settings and logger compiled in Actions run 44235722163; device verification is pending.
 
 ## Current implementation
 

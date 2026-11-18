@@ -1,6 +1,6 @@
 # Incremental roadmap
 
-Last updated: 2026-11-18. M1/M2 baseline code exists; CI/device checks are pending. Checkboxes
+Last updated: 2026-11-18. M1/M2 baseline code is build-verified; device checks are pending. Checkboxes
 represent exit criteria, not optimistic completion.
 
 ## M0: Inspect and establish continuity
@@ -18,12 +18,13 @@ No app implementation is implied by M0.
 
 ## M1: Reproducible scaffold and eligibility diagnostics
 
-- [x] Pin compatible AGP, Gradle, Kotlin and Compose versions (D-013; build pending).
+- [x] Pin compatible AGP, Gradle, Kotlin and Compose versions (D-013; CI verified).
 - [x] Create wrapper/build files and modules with `minSdk = 35`.
 - [x] Add camera permissions and minimal native navigation/theme.
 - [x] Implement discovery and the LEVEL_3 device gate (not yet device-verified).
 - [x] Implement initial capability diagnostics and lifecycle logs (runtime pending).
-- [ ] Build, run JVM checks and install on the Samsung phone when connected.
+- [x] Build debug APK and run JVM checks (run 44235722163; nine model tests passed).
+- [ ] Install/test on the Samsung phone when connected.
 
 Exit: a buildable app, reliable permission/eligibility states and an actual device
 capability report. Scaffolding/unit work can proceed without the phone; the device
@@ -43,7 +44,7 @@ Preserve failure evidence before adding advanced stream combinations.
 M2 source now includes close-before-reopen Camera2 ownership, fitted SurfaceView,
 JPEG request/orientation, IO MediaStore saving and last-photo gallery access.
 Supported automatic AF/AE/AWB, torch, zoom and camera switching exist. M2 boxes
-remain open until compilation plus lifecycle/orientation/capture tests substantiate
+remain open until physical lifecycle/orientation/capture tests substantiate
 the behavior; tap metering and capture AF/AE locking remain unimplemented.
 
 ## M3: Capability-aware advanced stills/lenses
@@ -110,7 +111,7 @@ or pretending unsupported reference labels are actual features.
 
 - [ ] Execute the full relevant test matrix and fix reproduced failures.
 - [ ] Record OS/build/camera-library environment and final capability inventory.
-- [ ] Produce an installable APK and document exact verified artifact path.
+- [x] Produce a signed debug APK and document exact verified artifact path (TESTING).
 - [ ] Record build/test results, unavailable features and remaining risks.
 - [ ] Update all canonical docs and the handoff to the delivered state.
 

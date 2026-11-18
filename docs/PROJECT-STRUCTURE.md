@@ -30,7 +30,9 @@ camera3/
 ```
 
 The tree above records the documentation bootstrap. Android source, build files,
-wrapper and unit tests now exist as described below. No APK has been verified yet.
+wrapper and unit tests now exist as described below. Actions produced a verified
+debug APK; local downloads are under ignored `app/build/ci/44235722163/`, with
+package/signing evidence in [TESTING.md](TESTING.md). Generated APKs are not committed.
 
 ## Implemented Android layout
 

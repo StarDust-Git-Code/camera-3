@@ -313,8 +313,13 @@ class CameraEngine(
         run.closing = true
         run.timeout?.let { handler.removeCallbacks(it) }
         if (!blocked) _runtime.value = _runtime.value.copy(phase = CameraPhase.CLOSING, message = "Closing camera")
-        try { run.session?.stopRepeating() } catch (error: Exception) { logger.log(LogLevel.DEBUG, "Close", "Repeating request already stopped", error) }
-        run.session?.close()
+        // reconcile() may call close() repeatedly while a run is shutting down; session teardown
+        // must be idempotent so a closed session is never probed twice (duplicate ISE logs).
+        run.session?.let { session ->
+            run.session = null
+            try { session.stopRepeating() } catch (error: Exception) { logger.log(LogLevel.DEBUG, "Close", "Repeating request already stopped", error) }
+            session.close()
+        }
         run.device?.close() // If still opening, onOpened will close it before configuring.
     }
     private fun releaseReaderIfSafe(run: Run) {

@@ -1,7 +1,7 @@
 # Technology stack
 
-Last updated: 2026-11-18. Initial scaffold and dependency pins exist; compilation
-is pending. The broader recording/RAW/storage proposals below are still future work.
+Last updated: 2026-11-18. Initial scaffold/dependency pins are build-verified in
+Actions run 44235722163. Recording/RAW/storage proposals below remain future work.
 
 ## Initial pinned build
 
@@ -21,6 +21,9 @@ dependency-existence evidence, not a passing application build.
 Initial Kotlin 2.2.21 selection was corrected to 2.3.21 after inspecting Kotlin's
 compatibility matrix: 2.2.21 fully supports AGP only through 8.11.1, while 2.3.21
 covers AGP 8.13.2 and Gradle 8.13. See D-013 for the correction history.
+The full pinned set subsequently compiled successfully at `9174a63`, with nine
+passing model tests and no lint errors; newer-version warnings are recorded in
+[TESTING.md](TESTING.md), not suppressed or treated as automatic upgrade orders.
 
 ## Required by the user
 

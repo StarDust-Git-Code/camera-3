@@ -6,8 +6,8 @@ User requested GitHub Actions as the APK compilation path.
 ## Observed environment
 
 - Workspace: `C:\Users\irsha\Desktop\camera3`.
-- Workspace was empty before this documentation set; no Git repository detected
-  by the supplied environment/current layout.
+- Workspace was empty before this documentation set. Git now exists, with
+  `origin/main` pointing to the user's Camera3 repository.
 - JDK 21.0.6 from Eclipse Adoptium is on PATH (`java`, `javac`).
 - Android SDK: `C:\Users\irsha\AppData\Local\Android\Sdk`.
 - ADB: `C:\Users\irsha\AppData\Local\Android\Sdk\platform-tools\adb.exe`.
@@ -15,8 +15,9 @@ User requested GitHub Actions as the APK compilation path.
 - SDK command-line tools are installed, but `sdkmanager` was not on PATH.
 - Standalone `gradle` and `kotlinc` were not on PATH. This does not prevent a
   properly bootstrapped wrapper/Kotlin Gradle build.
-- Wrapper, Android source and model unit tests now exist. No verified APK or
-  release signing yet. Git is installed; `gh` is not on PATH. Git Credential
+- Wrapper, Android source and nine passing model unit tests now exist. Actions
+  produced a verified debug APK; production release signing is not configured.
+  Git is installed; `gh` is not on PATH. Git Credential
   Manager lists the repository-owner account, without exposing credentials.
 
 Recheck these observations when resuming; do not assume the user's host is
@@ -70,7 +71,7 @@ The wrapper now exists. Run from the workspace or CI:
 .\gradlew.bat connectedDebugAndroidTest
 ```
 
-No application build has been verified yet. The workflow uses Bash/Ubuntu to run
+Actions run 44235722163 successfully built commit `9174a63`. The workflow uses Bash/Ubuntu to run
 `:core:model:test testDebugUnitTest :app:lintDebug :app:assembleDebug` and uploads
 `camera3-debug-apk` plus `verification-reports`. Local `local.properties` must
 point to the SDK if local checks are needed; it is ignored and not published.
@@ -89,6 +90,12 @@ point to the SDK if local checks are needed; it is ignored and not published.
   HANDOFF); use Git Credential Manager via process memory, never source/token files.
 - Fresh CI debug signing keys are disposable; updates from different runs may
   require uninstall/reinstall. Stable signing is a separate future decision.
+- Local verified APK: `app/build/ci/44235722163/apk/app-debug.apk` (ignored);
+  downloaded reports and full CI log are siblings under the run directory.
+- SDK build tools `36.0.0/apksigner.bat verify --verbose <apk>` and
+  `36.0.0/aapt2.exe dump badging <apk>` passed. See TESTING for hash/metadata.
+- CI annotations about deprecated action versions/Node20 and wrapper executable
+  permissions are maintenance follow-ups, not a failed build (P-010).
 
 ## Repeatable workflow
 

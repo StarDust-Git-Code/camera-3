@@ -5,7 +5,7 @@ Compose and Camera2**, for **Android 15+ phones with LEVEL_3 camera support**.
 
 ## Current status
 
-**Initial Photo implementation exists. Compilation and device verification are pending.**
+**Debug APK built successfully with GitHub Actions. Physical-device testing is pending.**
 
 The modular Android project now contains real Camera2 discovery, a LEVEL_3 gate,
 SurfaceView preview, JPEG capture to MediaStore, camera switching, supported
@@ -20,6 +20,12 @@ pull requests, or manual dispatch. It runs unit tests, lint and `assembleDebug`,
 then uploads **camera3-debug-apk** and **verification-reports** artifacts.
 Download the APK artifact from a successful Actions run and unzip it to install.
 This is a development/debug APK, not a signed production release.
+
+First verified build: [Actions run 44235722163](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44235722163),
+commit `9174a63`. [Download camera3-debug-apk](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44235722163/artifacts/14397496809)
+(GitHub sign-in may be required; unzip `app-debug.apk`; retained until 2026-12-02).
+Nine model tests passed; lint: 0 errors, 17 reviewed warnings. APK signature and
+package/minimum SDK were checked locally. Details: [testing evidence](docs/TESTING.md).
 
 ## Product direction
 
@@ -50,8 +56,8 @@ context window or automatically prove implementation status.
 
 ## Next implementation milestone
 
-Compile through GitHub Actions, resolve build errors, then test permissions,
-eligibility, preview, JPEG orientation/saving, lifecycle and diagnostics on the A35.
+Connect/authorize the A35, install the verified APK, then test permissions,
+eligibility, preview, JPEG orientation/saving, lifecycle and diagnostics.
 Recording, RAW/DNG, extensions and manual capture controls remain unimplemented.
 
 Development identity: Camera3 / `dev.camera3.app` / `0.1.0-dev`. Final branding and
