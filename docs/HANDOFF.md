@@ -1,12 +1,18 @@
 # Handoff: read first when resuming
 
-Last updated: 2026-11-18. The fix build is installed on the phone; the RAW/DNG
-pipeline is implemented and locally build-verified, awaiting CI + device checks.
+Last updated: 2026-11-18. The RAW/DNG pipeline is pushed and CI-green; the
+RAW-build APK is downloaded and verified locally, awaiting the phone to install
+and run the RAW device checks.
 
 ## Current state
 
-- Published CI-green source: `6212f3c` (identical app sources to `6b8b35f`).
-  The local working tree now adds the RAW pipeline + docs, uncommitted.
+- Published CI-green source: `7905a89` (RAW/DNG pipeline + docs, run
+  44247877745 passed). Local working tree is clean.
+- RAW-build APK downloaded and verified:
+  `app/build/ci/44247877745/camera3-debug-apk/app-debug.apk`, 62,186,421 bytes,
+  SHA256 `17ab7be0d15ed57b8f57bc56297cb8c50440f8aff74cd6aff4b2a26c1128cd78`,
+  v2 signature/package checks passed; 11 tests / 0 failures; lint 0 errors.
+  Install is pending — the phone was disconnected at the attempt.
 - Fix build (run 44240950175, `6b8b35f`) IS installed on the phone: fresh
   runner key forced uninstall/reinstall (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`
   first), CAMERA re-granted via the system dialog, DataStore reset observed
@@ -80,15 +86,17 @@ pipeline is implemented and locally build-verified, awaiting CI + device checks.
 
 ## Exact next action
 
-1. Commit source + docs together, push, watch CI (same local compile already
-   passed; `:core:model:test testDebugUnitTest :app:lintDebug :app:assembleDebug`).
-2. Install the new APK (`install -r`; uninstall/reinstall if the runner key
-   changed — settings reset expected). Verify foreground before any `input tap`.
-3. Device-verify RAW per D-016: RAW chip visibility per lens (all four?),
-   toggle→close/reopen→3-stream session, session-probe outcome, capture saves
-   JPEG + DNG pair, DNG opens/rotates correctly, failure path if the combo is
-   unsupported. Record in TESTING/PROGRESS/CAMERA-CAPABILITIES (observed
-   rawSizes), update P-011/P-012 re-verification and deferred UI checks.
-4. Then implement Video (M4): MediaRecorder surface pairing, record/stop state
+1. When the phone reconnects (`adb devices -l`), install the RAW build
+   `app/build/ci/44247877745/camera3-debug-apk/app-debug.apk` (`install -r`;
+   the fresh runner key will likely force uninstall/reinstall — expect the
+   settings reset, re-grant CAMERA via the system dialog).
+2. Verify the foreground app before any `input tap`, then device-verify RAW
+   per D-016: RAW chip visibility per lens, toggle → close/reopen → 3-stream
+   session probe outcome, capture saving a JPEG+DNG pair, DNG opens/rotates
+   correctly, honest failure path if the combination is unsupported. Record
+   observed rawSizes in CAMERA-CAPABILITIES and results in TESTING/PROGRESS,
+   including the deferred UI checks (Logs/share, full-caps detail, P-011 close
+   logs, P-012 capability labels).
+3. Then implement Video (M4): MediaRecorder surface pairing, record/stop state
    machine, orientation hint, silent mode without mic grant, session
    reconfiguration.

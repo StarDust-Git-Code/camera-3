@@ -186,6 +186,10 @@ completed with fixes for two runtime findings awaiting the next CI build.
 - Video (M4) is planned next after RAW device verification: MediaRecorder
   surface pairing, record/stop state machine, orientation hint, silent mode
   without mic grant, session reconfiguration.
+- RAW commit `7905a89` pushed; CI run 44247877745 passed (foreground watch).
+  RAW-build APK downloaded and verified locally (SHA256, v2 signature, package
+  identity; 11 tests / 0 failures in CI); phone was disconnected at the install
+  attempt, so RAW device verification is pending the next connection.
 
 ## Active blockers
 

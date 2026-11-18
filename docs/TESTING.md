@@ -135,6 +135,8 @@ work. DOC-04: platform/device constraints agree across canonical files.
 | 2026-11-18 | Docs checkpoint push CI | Passed | Commit `6212f3c`, [run 44243301133](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44243301133) concluded success (identical app sources to 6b8b35f); no new artifact downloaded |
 | 2026-11-18 | Reinstall of the fix build | Passed | `install -r` failed (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`, fresh runner debug key) → uninstall + streamed install Success; system dialog re-granted CAMERA; DataStore reset observed (quality 95%, grid OFF); grid re-enabled in-app; quality left at 95% (user decision); DCIM photos survived |
 | 2026-11-18 | RAW pipeline local build | Passed, build-verified | `:core:model:test` 11 tests 0 failures (incl. 2 new RAW pairing tests) + `:core:camera|media|settings:compileDebugKotlin` + `:app:compileDebugKotlin` BUILD SUCCESSFUL; two real compile errors found and fixed (P-014, P-015); CI rerun remains the authoritative gate |
+| 2026-11-18 | RAW commit CI run | Passed | Commit `7905a89`, [run 44247877745](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44247877745) concluded success (foreground watch, exit 0) |
+| 2026-11-18 | RAW APK verification | Passed, host-observed | Downloaded `camera3-debug-apk`: 62,186,421 bytes, SHA256 `17ab7be0d15ed57b8f57bc56297cb8c50440f8aff74cd6aff4b2a26c1128cd78`, v2 signature verified, aapt2 confirms dev.camera3.app 0.1.0-dev; lint 0 errors/17 warnings; Gradle HTML report shows 11 tests / 0 failures; device install pending (phone disconnected at attempt) |
 
 Android `testDebugUnitTest` tasks were `NO-SOURCE` in all Android modules. Only
 the nine `:core:model:test` tests executed; do not describe this as camera engine,
@@ -146,12 +148,35 @@ regression tests.
 
 ## Verified APK builds and reports
 
-Both builds are runner-debug-signed, not production release signing, and neither
+All builds are runner-debug-signed, not production release signing, and none
 implies device verification beyond what the execution record states. Fresh CI
 keys can require uninstall/reinstall between builds; preserve needed app data
 first. All generated downloads are ignored by Git.
 
-### Fix build (current install candidate)
+### RAW build (current install candidate)
+
+- Run: [44247877745](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44247877745),
+  source commit `7905a89` (RAW/DNG pipeline + docs); a foreground watch
+  observed conclusion success.
+- Local APK: `app/build/ci/44247877745/camera3-debug-apk/app-debug.apk`;
+  62,186,421 bytes, SHA256
+  `17ab7be0d15ed57b8f57bc56297cb8c50440f8aff74cd6aff4b2a26c1128cd78`.
+- Local reports: `app/build/ci/44247877745/verification-reports/` (lint +
+  11 model tests).
+- Build-tools checks passed: `apksigner verify` (v2 scheme) and
+  `aapt2 dump badging`: `dev.camera3.app`, versionCode 1 / `0.1.0-dev`,
+  Camera3 label, debuggable.
+- Device install pending (phone disconnected at the attempt). The runner debug
+  key differs from the installed build, so expect the same
+  `INSTALL_FAILED_UPDATE_INCOMPATIBLE` → uninstall/reinstall path and the
+  settings reset (quality 95%, grid OFF) on first launch.
+- Device verification plan for this build (D-016): RAW chip visibility per
+  lens, toggle → close/reopen → 3-stream session probe outcome, capture saving
+  a JPEG+DNG pair, DNG opening/rotation, honest failure path, plus the
+  deferred UI checks (Logs/share, full-caps detail, P-011 close logs, P-012
+  capability labels).
+
+### Fix build (superseded install candidate)
 
 - Run: [44240950175](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44240950175),
   source commit `6b8b35f` (P-011/P-012 fixes + device-session docs); a
