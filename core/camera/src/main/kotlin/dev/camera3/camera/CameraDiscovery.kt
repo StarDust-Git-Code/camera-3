@@ -2,6 +2,8 @@ package dev.camera3.camera
 
 import android.content.Context
 import android.graphics.ImageFormat
+import android.media.MediaCodecList
+import android.media.MediaFormat
 import android.media.MediaRecorder
 import android.hardware.camera2.CameraCharacteristics as CC
 import android.hardware.camera2.CameraManager
@@ -15,6 +17,7 @@ class CameraDiscovery(context: Context, private val logger: AppLogger) {
     private val manager = context.applicationContext.getSystemService(CameraManager::class.java)
 
     suspend fun discover(): List<CameraDescriptor> = withContext(Dispatchers.IO) {
+        val avc1080p60 = supportsAvc1080p60()
         manager.cameraIdList.mapNotNull { id ->
             try {
                 val c = manager.getCameraCharacteristics(id)
@@ -28,11 +31,37 @@ class CameraDiscovery(context: Context, private val logger: AppLogger) {
                         logger.log(LogLevel.WARNING, "Discovery", "RAW size query failed for ID $id", error)
                         emptyList()
                     }
-                val videoSizes = try { map?.getOutputSizes(MediaRecorder::class.java)?.map { Dimensions(it.width, it.height) }.orEmpty() }
+                val platformVideoSizes = try { map?.getOutputSizes(MediaRecorder::class.java).orEmpty().toList() }
                     catch (error: Exception) {
                         logger.log(LogLevel.WARNING, "Discovery", "MediaRecorder size query failed for ID $id", error)
                         emptyList()
                     }
+                val videoSizes = platformVideoSizes.map { Dimensions(it.width, it.height) }
+                val videoMinFrameDurations = platformVideoSizes.associate { size ->
+                    Dimensions(size.width, size.height) to try {
+                        map?.getOutputMinFrameDuration(MediaRecorder::class.java, size) ?: Long.MAX_VALUE
+                    } catch (error: Exception) {
+                        logger.log(LogLevel.WARNING, "Discovery", "MediaRecorder frame-duration query failed for ID $id at ${size.width}×${size.height}", error)
+                        Long.MAX_VALUE
+                    }
+                }
+                val highSpeedSizes = try { map?.highSpeedVideoSizes?.toSet().orEmpty() }
+                    catch (error: Exception) {
+                        logger.log(LogLevel.WARNING, "Discovery", "High-speed size query failed for ID $id", error)
+                        emptySet()
+                    }
+                val highSpeedRanges = platformVideoSizes.filter { it in highSpeedSizes }.associate { size ->
+                    Dimensions(size.width, size.height) to try {
+                        map?.getHighSpeedVideoFpsRangesFor(size)
+                            ?.mapNotNull { range ->
+                                range.takeIf { it.lower > 0 && it.upper >= it.lower }
+                                    ?.let { FrameRateRange(it.lower, it.upper) }
+                            }.orEmpty()
+                    } catch (error: Exception) {
+                        logger.log(LogLevel.WARNING, "Discovery", "High-speed FPS query failed for ID $id at ${size.width}×${size.height}", error)
+                        emptyList()
+                    }
+                }
                 val maximumResolutionJpegSizes = try {
                     maximumResolutionMap?.getOutputSizes(ImageFormat.JPEG)
                         ?.map { Dimensions(it.width, it.height) }.orEmpty()
@@ -68,6 +97,14 @@ class CameraDiscovery(context: Context, private val logger: AppLogger) {
                     previewSizes = map?.getOutputSizes(SurfaceHolder::class.java)?.map { Dimensions(it.width, it.height) }.orEmpty(),
                     rawSizes = rawSizes,
                     videoSizes = videoSizes,
+                    aeFrameRateRanges = c[CC.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES]
+                        ?.mapNotNull { range ->
+                            range.takeIf { it.lower > 0 && it.upper >= it.lower }
+                                ?.let { FrameRateRange(it.lower, it.upper) }
+                        }.orEmpty(),
+                    videoMinFrameDurationNs = videoMinFrameDurations,
+                    highSpeedVideoFrameRateRanges = highSpeedRanges,
+                    supportsAvc1080p60 = avc1080p60,
                     maximumResolutionJpegSizes = maximumResolutionJpegSizes,
                     maximumResolutionRawSizes = maximumResolutionRawSizes,
                     physicalIds = c.physicalCameraIds,
@@ -101,6 +138,11 @@ class CameraDiscovery(context: Context, private val logger: AppLogger) {
                         "Maximum-resolution RAW sizes" to
                             (maximumResolutionRawSizes.takeIf { it.isNotEmpty() }?.joinToString() ?: "Not reported"),
                         "MediaRecorder sizes" to (videoSizes.takeIf { it.isNotEmpty() }?.joinToString() ?: "Not reported"),
+                        "AVC encoder 1920×1080 @ 60 fps" to avc1080p60.toString(),
+                        "MediaRecorder minimum frame durations (ns)" to
+                            (videoMinFrameDurations.takeIf { it.isNotEmpty() }?.entries?.joinToString() ?: "Not reported"),
+                        "High-speed FPS ranges by size" to
+                            (highSpeedRanges.takeIf { it.isNotEmpty() }?.entries?.joinToString() ?: "Not reported"),
                     ),
                 )
                 logger.log(LogLevel.INFO, "Discovery", "ID $id: ${descriptor.facing}, ${descriptor.level}, JPEG sizes=${descriptor.jpegSizes.size}, RAW sizes=${descriptor.rawSizes.size}, maximum JPEG sizes=${descriptor.maximumResolutionJpegSizes.size}, maximum RAW sizes=${descriptor.maximumResolutionRawSizes.size}, video sizes=${descriptor.videoSizes.size}, capabilities=${descriptor.capabilities}")
@@ -110,6 +152,19 @@ class CameraDiscovery(context: Context, private val logger: AppLogger) {
                 null
             }
         }
+    }
+
+    private fun supportsAvc1080p60(): Boolean = try {
+        MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos.any { info ->
+            info.isEncoder && info.supportedTypes.any { it.equals(MediaFormat.MIMETYPE_VIDEO_AVC, ignoreCase = true) } &&
+                runCatching {
+                    info.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC)
+                        .videoCapabilities?.areSizeAndRateSupported(1920, 1080, 60.0) == true
+                }.getOrDefault(false)
+        }
+    } catch (error: Exception) {
+        logger.log(LogLevel.WARNING, "Discovery", "AVC 1080p60 encoder query failed", error)
+        false
     }
 
     private fun capabilityName(value: Int): String = when (value) {

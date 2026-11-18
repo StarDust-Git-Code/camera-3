@@ -14,6 +14,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
+import android.util.Range
 import android.view.Surface
 import dev.camera3.diagnostics.AppLogger
 import dev.camera3.media.PhotoStore
@@ -172,6 +173,7 @@ class CameraEngine(
                 (plan.photo.raw?.let { ", RAW=$it" } ?: "") +
                 (if (plan.photo.sensorPixelMode == SensorPixelMode.MAXIMUM_RESOLUTION) ", maximum-resolution pixel mode" else "")
             is StreamPlan.Video -> "Video · ${plan.video.video}, preview=${plan.video.preview}" +
+                ", ${plan.video.fps} fps, ${plan.video.sessionMode}" +
                 (if (plan.video.mic) ", mic" else ", silent")
         }
         _runtime.value = CameraRuntime(CameraPhase.OPENING, source.plan.mode, source.camera.id, null,
@@ -227,9 +229,9 @@ class CameraEngine(
             recorder.setVideoSource(MediaRecorder.VideoSource.SURFACE)
             recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             recorder.setOutputFile(output.descriptor.fileDescriptor)
-            // ~5 Mbps per megapixel keeps 1080p near 10 Mbps without a settings surface yet.
-            recorder.setVideoEncodingBitRate((video.video.area / 1_000_000 * 5L).toInt().coerceIn(4_000_000, 24_000_000))
-            recorder.setVideoFrameRate(30)
+            // 60 fps needs roughly twice the baseline 30 fps budget at the same dimensions.
+            recorder.setVideoEncodingBitRate((video.video.area / 1_000_000 * 10L).toInt().coerceIn(8_000_000, 24_000_000))
+            recorder.setVideoFrameRate(video.fps)
             recorder.setVideoSize(video.video.width, video.video.height)
             recorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264)
             if (video.mic) {
@@ -271,7 +273,11 @@ class CameraEngine(
                 if (maximumResolution) addSensorPixelModeUsed(CameraMetadata.SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION)
             }
             run.recorderSurface?.let { outputs += OutputConfiguration(it) }
-            val config = SessionConfiguration(SessionConfiguration.SESSION_REGULAR, outputs, executor,
+            val sessionType = ((run.source.plan as? StreamPlan.Video)?.video?.sessionMode).let {
+                if (it == VideoSessionMode.CONSTRAINED_HIGH_SPEED) SessionConfiguration.SESSION_HIGH_SPEED
+                else SessionConfiguration.SESSION_REGULAR
+            }
+            val config = SessionConfiguration(sessionType, outputs, executor,
                 object : CameraCaptureSession.StateCallback() {
                     override fun onConfigured(session: CameraCaptureSession) {
                         if (active !== run || run.closing || disposed) { session.close(); return }
@@ -280,9 +286,9 @@ class CameraEngine(
                             val template = if (run.source.plan is StreamPlan.Video) {
                                 CameraDevice.TEMPLATE_RECORD
                             } else CameraDevice.TEMPLATE_PREVIEW
-                            session.setRepeatingRequest(request(run, template).apply {
+                            submitRepeating(run, request(run, template).apply {
                                 addTarget(run.source.surface)
-                            }.build(), telemetry(run), handler)
+                            })
                             _runtime.value = _runtime.value.copy(phase = CameraPhase.PREVIEWING,
                                 message = when {
                                     run.source.plan is StreamPlan.Video -> "Video · ready to record"
@@ -320,6 +326,8 @@ class CameraEngine(
         set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
         set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
         val af = when {
+            run.source.plan is StreamPlan.Video &&
+                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO in c.afModes -> CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO
             CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE in c.afModes -> CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE
             CaptureRequest.CONTROL_AF_MODE_AUTO in c.afModes -> CaptureRequest.CONTROL_AF_MODE_AUTO
             else -> CaptureRequest.CONTROL_AF_MODE_OFF
@@ -328,6 +336,9 @@ class CameraEngine(
         if (c.flashAvailable) set(CaptureRequest.FLASH_MODE,
             if (controls.torch) CaptureRequest.FLASH_MODE_TORCH else CaptureRequest.FLASH_MODE_OFF)
         if (c.supportsZoomRatio) set(CaptureRequest.CONTROL_ZOOM_RATIO, controls.zoom)
+        (run.source.plan as? StreamPlan.Video)?.video?.let { video ->
+            set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, Range(video.fps, video.fps))
+        }
         if (template == CameraDevice.TEMPLATE_STILL_CAPTURE &&
             (run.source.plan as? StreamPlan.Photo)?.photo?.sensorPixelMode == SensorPixelMode.MAXIMUM_RESOLUTION) {
             set(CaptureRequest.SENSOR_PIXEL_MODE, CameraMetadata.SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION)
@@ -417,8 +428,22 @@ class CameraEngine(
         val builder = request(run, template).apply { addTarget(run.source.surface) }
         // While recording, the recorder surface must keep receiving frames.
         if (run.recording) builder.addTarget(requireNotNull(run.recorderSurface))
-        run.session!!.setRepeatingRequest(builder.build(), telemetry(run), handler)
+        submitRepeating(run, builder)
         if (logControl) logger.log(LogLevel.INFO, "Controls", "ID ${run.source.camera.id}: zoom=${_runtime.value.zoom}, torch=${_runtime.value.torch}")
+    }
+
+    private fun submitRepeating(run: Run, builder: CaptureRequest.Builder) {
+        val session = requireNotNull(run.session)
+        val video = (run.source.plan as? StreamPlan.Video)?.video
+        if (video?.sessionMode == VideoSessionMode.CONSTRAINED_HIGH_SPEED) {
+            val highSpeed = session as? CameraConstrainedHighSpeedCaptureSession
+                ?: error("Camera did not create the requested constrained high-speed session")
+            highSpeed.setRepeatingBurst(
+                highSpeed.createHighSpeedRequestList(builder.build()), telemetry(run), handler,
+            )
+        } else {
+            session.setRepeatingRequest(builder.build(), telemetry(run), handler)
+        }
     }
 
     fun capture(displayDegrees: Int) = post {
@@ -485,9 +510,9 @@ class CameraEngine(
                 addTarget(run.source.surface)
                 addTarget(requireNotNull(run.recorderSurface))
             }
-            run.session!!.setRepeatingRequest(builder.build(), telemetry(run), handler)
+            submitRepeating(run, builder)
             recorder.start()
-            logger.log(LogLevel.INFO, "Record", "Recording started: epoch=${run.epoch}, mic=${run.source.plan.video.mic}")
+            logger.log(LogLevel.INFO, "Record", "Recording started: epoch=${run.epoch}, 1920×1080 @ ${run.source.plan.video.fps} fps, session=${run.source.plan.video.sessionMode}, mic=${run.source.plan.video.mic}")
         } catch (error: Exception) {
             run.recording = false
             fail(run, "Cannot start recording", error)

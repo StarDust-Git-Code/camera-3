@@ -144,6 +144,14 @@ Source/build work may proceed, but maximum-resolution availability, zoom feel,
 RAW throughput, stereo channels and USB routing remain device-unverified until
 the user later permits a physical test session.
 
+## R-12: Focused 1080p60 tranche
+
+On 2026-11-18 the user limited the active task to achieving **1920×1080 at
+60 fps only**, with all CI checks passing. This tranche must not add unrelated
+features or retain a silent 30 fps fallback under a 60 fps label. Availability
+requires real camera stream/FPS timing, writable request, encoder and complete
+session evidence. Build/CI success does not prove physical output cadence.
+
 ## Non-goals unless explicitly added
 
 - Modifying Magisk modules, camera libraries, bootloader state or firmware.

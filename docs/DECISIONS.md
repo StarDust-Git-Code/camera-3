@@ -365,6 +365,35 @@ the older proposals below are retained as design history.
 - **Consequence:** this is a second tranche with new ownership, synchronization,
   backpressure and acceptance tests. It does not promote any UI toggle today.
 
+## D-021: Capability-gated 1920×1080 at fixed 60 fps only
+
+- **Status:** implemented and locally build-verified, 2026-11-18; CI and device
+  output verification pending.
+- **Scope:** the user explicitly limited this tranche to 1080p60. Video now has
+  no 30 fps or alternate-resolution fallback.
+- **Availability:** require a real 1920×1080 MediaRecorder output, writable
+  `CONTROL_AE_TARGET_FPS_RANGE`, AVC encoder support for 1920×1080@60, a
+  compatible preview and either:
+  - regular-session fixed `[60,60]` AE support with MediaRecorder minimum frame
+    duration no greater than 16,666,666 ns (zero is accepted as no stricter
+    stream-duration limit), or
+  - `CONSTRAINED_HIGH_SPEED_VIDEO`, an explicit 1920×1080 `[60,60]` high-speed
+    range and a same-size 1920×1080 preview surface.
+- **Session/request:** regular mode remains a regular session. The fallback uses
+  `SESSION_HIGH_SPEED`, `createHighSpeedRequestList` and `setRepeatingBurst`.
+  Both set the request to `[60,60]`; the recorder uses 60 fps H.264 with an
+  approximately 20 Mbps budget. Complete session support/configuration remains
+  the runtime gate.
+- **UI:** label `1080p · 60 fps` only when policy returns a complete configuration;
+  otherwise Video is unavailable with the capability reason. Do not infer cadence
+  from the nominal MP4 header.
+- **Verification:** final full gate passed locally in 1m12s: 15 model + 6 app
+  tests, lint 0 errors/16 warnings, debug APK assembled and identity/signature
+  checks passed. A saved
+  MP4 still needs timestamp/cadence inspection on the physical phone.
+- **Supersedes:** D-017's 30 fps selection policy, while retaining its recorder,
+  storage, orientation, audio and cleanup ownership.
+
 ### New-decision template
 
 Add the next ID with status, date, problem, chosen approach, inspected sources/

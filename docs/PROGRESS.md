@@ -3,7 +3,8 @@
 Last updated: 2026-11-18. Correction `cc73c69` is CI-green and device-retested:
 preview/session opening works, with partial RAW/Video evidence. Genuine
 maximum-resolution still discovery and smooth video zoom are implemented and
-CI build-verified but device-unverified. Advanced GPU/audio work is planned.
+CI build-verified but device-unverified. A focused 1080p60-only Video policy is
+locally build-verified; publication and physical cadence evidence are pending.
 
 ## Current summary
 
@@ -16,11 +17,12 @@ CI build-verified but device-unverified. Advanced GPU/audio work is planned.
 | Device baseline session | Device-verified (partial) | Permission/gate, preview, capture+storage, torch, zoom, 4-lens switching, lifecycle, settings persistence passed; Logs/share/full-caps/quality-isolation deferred (TESTING) |
 | Requirements/design | Documented | REQUIREMENTS, DECISIONS and subsystem docs |
 | Project-local Markdown | Created | Root AGENTS/README and 18 documents under docs |
-| Documentation consistency | Host-verified / reviewed | Current check: 21 Markdown files, 59 local links, 0 broken targets, 93-line handoff; history in TESTING |
+| Documentation consistency | Host-verified / reviewed | Current check: 21 Markdown files, 60 local links, 0 broken targets, 99-line handoff; history in TESTING |
 | Android scaffold | Build-verified | Six modules compiled in run 44235722163 at 9174a63; API35 minimum/API36 target |
 | Photo/settings/logger | Device-verified for Photo path | Real Camera2/JPEG/MediaStore verified on-device with saved media; log screen/share intent and quality isolation still to exercise |
 | Runtime findings | P-016 device-resolved for reproduced startup path | Correction log shows valid attachment/open/configure across Photo/Video/lens/lifecycle; P-011/P-012 checks remain |
 | Recording/RAW | Implemented / partial device evidence | JPEG+DNG save logs on IDs 0/1; user reports FHD/30 recording works. Saved DNG/MP4 inspection remains |
+| 1080p60-only Video | Implemented / local build-verified | D-021 capability gates regular or constrained sessions; 15 model + 6 app tests pass. CI/device cadence pending |
 | Maximum-resolution/smooth zoom | Implemented / CI build-verified | `d0ccb40`, run 44298287574; no installed build has queried maximum-resolution maps or assessed zoom feel |
 | GPU color/RAW-frame/stereo monitoring | Planned | D-020 architecture only; no controls exposed |
 | Extensions/manual | Not implemented | Disabled or diagnostics-only, no fake pipeline |
@@ -65,10 +67,9 @@ CI build-verified but device-unverified. Advanced GPU/audio work is planned.
 
 ## Next tasks
 
-1. Begin D-020 GPU/MediaCodec/AudioRecord architecture without exposing
-   unfinished LUT/Log/HDR/RAW-frame/stereo-monitor controls.
-2. When device testing resumes, query maximum-resolution maps first, verify
-   actual saved dimensions, then test zoom feel, RAW throughput and USB routing.
+1. Commit/push D-021 and wait for all GitHub Actions checks to pass.
+2. When device testing is separately authorized, inspect the exact 1080p60
+   capability/session and saved MP4 timestamps before calling it achieved on-device.
 
 ### 2026-11-18: Implementation bootstrap (not yet compiled)
 
@@ -272,6 +273,20 @@ CI build-verified but device-unverified. Advanced GPU/audio work is planned.
   Downloaded APK is 62,268,381 bytes, SHA256 `69A5B0F6…317910`; v2 signature,
   package `dev.camera3.app`, minSdk35 and targetSdk36 were verified. It was not
   installed because phone access is not authorized for this phase.
+
+### 2026-11-18: Focused 1080p60-only tranche
+
+- User limited the task to 1920×1080 at 60 fps only and requested all CI checks pass.
+- Discovery now records AE FPS ranges, per-MediaRecorder-size minimum frame
+  durations, per-size high-speed ranges and AVC encoder 1080p60 support.
+- Policy exposes Video only for a complete fixed-60 configuration. Regular mode
+  is preferred; constrained high-speed is accepted only with explicit `[60,60]`
+  support and same-size preview. No 30 fps or alternate-resolution fallback remains.
+- Engine sets `[60,60]`, records H.264 at 60 fps, and uses the constrained-session
+  generated repeating-burst API when required. UI truthfully labels 1080p60.
+- Final local full gate passed in 1m12s: 15 model + 6 app tests, no failures/ignored;
+  lint 0 errors/16 warnings; APK assembled and v2/package/SDK verified. No phone
+  access was used, so actual capability, session acceptance and cadence remain unknown.
 
 ## Active blockers
 

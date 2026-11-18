@@ -49,7 +49,7 @@ are intentional in this project.
 | Dependency wiring | Explicit constructor injection initially | Small, understandable object graph without unnecessary framework overhead |
 | Preview | SurfaceView through Compose AndroidView interop | Direct camera surface, low-copy preview; verify layering/orientation/HDR behavior |
 | Photo output | ImageReader, JPEG and RAW_SENSOR, DngCreator, ExifInterface | Actual sensor output and corresponding metadata |
-| Baseline video | MediaRecorder | Implemented first cut for bounded FHD/30 MP4; output acceptance remains partial |
+| Baseline video | MediaRecorder | Historical FHD/30 has partial device evidence; current source permits only capability-gated 1080p60 via regular or constrained high-speed Camera2 sessions |
 | Advanced video | GPU surface processing, MediaCodec and MediaMuxer | Planned codec/profile control, LUT/Log/HDR and output inspection |
 | Advanced audio | AudioRecord, AAC encoding and routed AudioTrack monitor | Planned stereo verification, explicit timestamps and Type-C IEM monitoring |
 | Storage | MediaStore and Storage Access Framework | Scoped storage and user-selected destinations without broad storage access |

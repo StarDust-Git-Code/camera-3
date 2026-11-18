@@ -189,7 +189,7 @@ private fun ColumnScope.CameraScreen(
             }
         } else {
             Text(ui.videoConfiguration?.let {
-                "MP4 · ${it.video.height}p" + if (!it.mic) " · silent" else ""
+                "MP4 · ${it.video.height}p · ${it.fps} fps" + if (!it.mic) " · silent" else ""
             } ?: "MP4 · unavailable", style = MaterialTheme.typography.labelMedium)
         }
         IconButton(onClick = settings) { Icon(Icons.Default.Settings, "Open settings") }
@@ -213,7 +213,7 @@ private fun ColumnScope.CameraScreen(
                 if (ui.preferences.highResolution) model::useStandardPhoto else model::discover,
                 "View diagnostics", diagnostics)
             ui.mode == CameraMode.VIDEO && videoConfig == null -> CameraMessage("Video unavailable on this lens",
-                "No 16:9 MediaRecorder size at or under 1080p has a matching preview stream. Photo remains available.",
+                "This lens and AVC encoder do not expose a complete 1920×1080 at 60 fps configuration with a matching preview. Photo remains available.",
                 "Back to photo", { model.setMode(CameraMode.PHOTO) }, "View diagnostics", diagnostics)
             else -> {
                 // RAW, sensor-pixel-mode and microphone changes must replace the session even if
@@ -281,8 +281,8 @@ private fun ColumnScope.CameraScreen(
             modifier = Modifier.align(Alignment.CenterHorizontally))
     } else {
         Text(when {
-            ui.mode == CameraMode.VIDEO -> if (ui.micGranted) "Video · MP4 with sound to DCIM/Camera3"
-                else "Video · silent MP4 to DCIM/Camera3 (no microphone)"
+            ui.mode == CameraMode.VIDEO -> if (ui.micGranted) "Video · 1080p60 MP4 with sound to DCIM/Camera3"
+                else "Video · silent 1080p60 MP4 to DCIM/Camera3 (no microphone)"
             ui.preferences.highResolution -> "Photo capture · public maximum-resolution sensor mode"
             ui.selected?.supportsRaw == true -> "Photo capture · RAW (DNG) available on this lens"
             else -> "This development build supports Photo only"

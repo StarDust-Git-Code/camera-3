@@ -54,21 +54,35 @@ object CameraPolicy {
     fun relativeRotation(sensorOrientation: Int, displayDegrees: Int, front: Boolean): Int =
         (sensorOrientation - displayDegrees * (if (front) 1 else -1) + 360) % 360
 
-    // Bounded 16:9 video baseline: the largest MediaRecorder size at or under 1080p whose
-    // aspect matches an available preview stream; without a matching preview the mode is
-    // unavailable rather than shown with mismatched framing.
+    // This tranche intentionally exposes only genuine 1920x1080 at a fixed 60 fps.
+    // Camera stream timing, a writable FPS request, AVC encoder support and a matching
+    // preview are all required; otherwise Video remains unavailable.
     fun videoConfiguration(camera: CameraDescriptor, mic: Boolean): VideoConfiguration? {
-        val videos = camera.videoSizes
-            .filter { abs(it.aspect - 16.0 / 9) <= 0.03 && it.width <= 1920 && it.height <= 1080 }
-            .sortedByDescending { it.area }
-        for (video in videos) {
-            val preview = camera.previewSizes
-                .filter { abs(it.aspect - video.aspect) < 0.015 }
-                .filter { it.width <= 1920 && it.height <= 1080 }
-                .maxByOrNull { it.area } ?: continue
-            return VideoConfiguration(video, preview, mic)
+        val video = Dimensions(1920, 1080)
+        if (video !in camera.videoSizes || !camera.supportsAvc1080p60 ||
+            "android.control.aeTargetFpsRange" !in camera.requestKeys) return null
+        val fixed60 = FrameRateRange(60, 60)
+        val minDuration = camera.videoMinFrameDurationNs[video] ?: Long.MAX_VALUE
+        val regular60 = fixed60 in camera.aeFrameRateRanges && minDuration >= 0L &&
+            (minDuration == 0L || minDuration <= 1_000_000_000L / 60L)
+        val highSpeed60 = "HIGH_SPEED_VIDEO" in camera.capabilities &&
+            fixed60 in camera.highSpeedVideoFrameRateRanges[video].orEmpty()
+        val sessionMode = when {
+            regular60 -> VideoSessionMode.REGULAR
+            highSpeed60 -> VideoSessionMode.CONSTRAINED_HIGH_SPEED
+            else -> return null
         }
-        return null
+        val preview = if (sessionMode == VideoSessionMode.CONSTRAINED_HIGH_SPEED) {
+            // Two-surface constrained high-speed sessions require the preview and
+            // recording outputs to use the same advertised high-speed size.
+            camera.previewSizes.firstOrNull { it == video }
+        } else {
+            camera.previewSizes
+                .filter { abs(it.aspect - video.aspect) < 0.015 }
+                .filter { it.width <= video.width && it.height <= video.height }
+                .maxByOrNull { it.area }
+        } ?: return null
+        return VideoConfiguration(video, preview, mic, fps = 60, sessionMode = sessionMode)
     }
 
     // Display#getRotation is counterclockwise. JPEG_ORIENTATION uses clockwise device orientation.

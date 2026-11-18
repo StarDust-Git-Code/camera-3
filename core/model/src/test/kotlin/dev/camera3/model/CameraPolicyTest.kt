@@ -69,22 +69,52 @@ class CameraPolicyTest {
         // Capability reported but no aspect-matching size: no configuration is invented.
         assertNull(CameraPolicy.configuration(advertised.copy(rawSizes = listOf(Dimensions(1920, 1080))), true))
     }
-    @Test fun videoNeedsBoundedWideSizeAndMatchingPreview() {
-        val camera = camera().copy(videoSizes = listOf(
-            Dimensions(3840, 2160), Dimensions(1920, 1080), Dimensions(1280, 720),
-            Dimensions(640, 480),
-        ), previewSizes = listOf(Dimensions(1440, 1080), Dimensions(1280, 720), Dimensions(640, 480)))
+    @Test fun videoRequiresReal1080p60CameraAndEncoderSupport() {
+        val fullHd = Dimensions(1920, 1080)
+        val camera = camera().copy(
+            videoSizes = listOf(Dimensions(3840, 2160), fullHd, Dimensions(1280, 720)),
+            previewSizes = listOf(Dimensions(1440, 1080), Dimensions(1280, 720)),
+            requestKeys = setOf("android.control.aeTargetFpsRange"),
+            aeFrameRateRanges = listOf(FrameRateRange(30, 30), FrameRateRange(60, 60)),
+            videoMinFrameDurationNs = mapOf(fullHd to 16_666_666L),
+            supportsAvc1080p60 = true,
+        )
         val config = CameraPolicy.videoConfiguration(camera, mic = true)!!
         assertEquals(Dimensions(1920, 1080), config.video)
         assertEquals(Dimensions(1280, 720), config.preview)
+        assertEquals(60, config.fps)
+        assertEquals(VideoSessionMode.REGULAR, config.sessionMode)
         assertTrue(config.mic)
-        assertTrue(CameraPolicy.videoConfiguration(camera, mic = false)!!.preview.width == 1280)
-        // No 16:9 preview for any 16:9 video size: the mode stays unavailable.
+        assertFalse(CameraPolicy.videoConfiguration(camera, mic = false)!!.mic)
+        assertNull(CameraPolicy.videoConfiguration(camera.copy(videoSizes = listOf(Dimensions(1280, 720))), false))
+        assertNull(CameraPolicy.videoConfiguration(camera.copy(previewSizes = listOf(Dimensions(1440, 1080))), false))
+        assertNull(CameraPolicy.videoConfiguration(camera.copy(requestKeys = emptySet()), false))
+        assertNull(CameraPolicy.videoConfiguration(camera.copy(aeFrameRateRanges = listOf(FrameRateRange(30, 30))), false))
+        assertNull(CameraPolicy.videoConfiguration(camera.copy(videoMinFrameDurationNs = mapOf(fullHd to 16_666_667L)), false))
+        assertNull(CameraPolicy.videoConfiguration(camera.copy(videoMinFrameDurationNs = mapOf(fullHd to -1L)), false))
+        assertNull(CameraPolicy.videoConfiguration(camera.copy(supportsAvc1080p60 = false), false))
+    }
+
+    @Test fun constrainedHighSpeed1080p60IsUsedOnlyWhenExplicitlyReported() {
+        val fullHd = Dimensions(1920, 1080)
+        val base = camera().copy(
+            videoSizes = listOf(fullHd),
+            previewSizes = listOf(fullHd),
+            requestKeys = setOf("android.control.aeTargetFpsRange"),
+            capabilities = setOf("HIGH_SPEED_VIDEO"),
+            highSpeedVideoFrameRateRanges = mapOf(fullHd to listOf(FrameRateRange(60, 60))),
+            supportsAvc1080p60 = true,
+        )
+        assertEquals(
+            VideoSessionMode.CONSTRAINED_HIGH_SPEED,
+            CameraPolicy.videoConfiguration(base, false)?.sessionMode,
+        )
         assertNull(CameraPolicy.videoConfiguration(
-            camera.copy(previewSizes = listOf(Dimensions(1440, 1080))), mic = false))
-        // Nothing under the bound except 4:3 sizes: unavailable, not invented.
+            base.copy(highSpeedVideoFrameRateRanges = mapOf(fullHd to listOf(FrameRateRange(30, 120)))), false,
+        ))
         assertNull(CameraPolicy.videoConfiguration(
-            camera.copy(videoSizes = listOf(Dimensions(640, 480))), mic = false))
+            base.copy(previewSizes = listOf(Dimensions(1280, 720))), false,
+        ))
     }
 
     @Test fun maximumResolutionNeedsRealPixelModeOutputs() {

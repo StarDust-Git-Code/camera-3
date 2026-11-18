@@ -6,13 +6,14 @@ Compose and Camera2**, for **Android 15+ phones with LEVEL_3 camera support**.
 ## Current status
 
 **Baseline Photo and the P-016 startup correction have physical-device evidence;
-RAW/DNG and FHD/30 Video have partial runtime evidence.**
+RAW/DNG and the earlier FHD/30 Video path have partial runtime evidence.**
 
 The modular Android project now contains real Camera2 discovery, a LEVEL_3 gate,
 SurfaceView preview, JPEG capture to MediaStore, camera switching, supported
 torch/zoom, RAW/DNG capture, first-cut MediaRecorder video, persisted settings,
 diagnostics and log export/share. Genuine maximum-resolution still discovery and
-smooth Video zoom are locally build-verified but not device-verified. Advanced
+smooth Video zoom are CI build-verified but not device-verified. A focused
+1080p60-only Video policy is locally build-verified and awaits CI/device evidence. Advanced
 modes remain absent or disabled rather than simulated.
 
 ## Build an APK with GitHub Actions
@@ -63,9 +64,8 @@ context window or automatically prove implementation status.
 
 ## Next implementation milestone
 
-Begin the separate Camera2→GPU→MediaCodec/MediaMuxer and AudioRecord/AudioTrack architecture
-without exposing unfinished controls. When phone testing is authorized again,
-query maximum-resolution maps and saved dimensions before claiming 50 MP.
+Publish the focused 1080p60-only Video tranche and pass CI. Physical-device
+cadence/file verification remains separate and requires later authorization.
 
 Development identity: Camera3 / `dev.camera3.app` / `0.1.0-dev`. Final branding and
 release signing are still open. Versions are pinned in `gradle/libs.versions.toml`.

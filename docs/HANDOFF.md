@@ -33,6 +33,11 @@ for the current implementation phase.
   ignored, and lint 0 errors/17 warnings.
 - D-020 GPU/MediaCodec/AudioRecord architecture for LUT, defined Log/HDR,
   bounded RAW frames, stereo and Type-C monitoring is planned only; no UI exposed.
+- D-021 focused source replaces the 30 fps selection policy with 1080p60 only.
+  It requires camera timing/range, writable FPS request, AVC encoder and preview
+  evidence; supports regular or explicit constrained-high-speed sessions; and has
+  no fallback resolution/FPS. Local full gate: 15 model + 6 app tests, lint
+  0 errors/16 warnings, APK identity/signature passed. CI/device evidence pending.
 - Device identity: Android 16 / API 36 with spoofed Samsung props (a35x board,
   SM-S711B model string, mixed fingerprint) consistent with the user's Magisk/
   modified-library report. Do not copy the device serial into docs/exports.
@@ -59,9 +64,9 @@ for the current implementation phase.
   build has queried maximum-resolution maps or saved a maximum-resolution file.
 - Night tab: Camera2 NIGHT extension (ID 4) is NOT advertised by this HAL —
   keep disabled with that reason unless another real pipeline is built.
-- Video limits (D-017): no pause/resume, no fps/bitrate settings surface, no
-  high-speed capture, no per-clip HAL-rejection fallback beyond the session
-  probe, mic grant not re-checked mid-session.
+- Video limits (D-017/D-021): no pause/resume or settings surface, no per-clip
+  HAL-rejection fallback beyond the session probe, mic grant not re-checked
+  mid-session; nominal 60 fps is not physical cadence proof.
 - Stabilization is not implemented/verified. Do not label current FHD/30 as OIS/EIS.
 - AF/AE lock, tap metering, extension sessions: not implemented. RAW device
   checks + deferred UI checks (Logs/share, full-caps detail, clean close
@@ -89,7 +94,6 @@ for the current implementation phase.
 
 ## Exact next action
 
-1. Begin D-020 architecture without exposing unfinished controls.
-2. When phone testing is authorized again, first record maximum-resolution maps,
-   session acceptance and saved dimensions; then inspect DNG/MP4, zoom feel,
-   stabilization, RAW throughput, stereo channels and effective USB/IEM routing.
+1. Commit/push only the D-021 1080p60 tranche and wait for all CI checks to pass.
+2. Do not claim physical 60 fps until an authorized phone run proves the session
+   and saved MP4 cadence from timestamps.

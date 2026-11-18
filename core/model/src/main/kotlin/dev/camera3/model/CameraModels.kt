@@ -6,6 +6,11 @@ enum class CameraPhase { IDLE, OPENING, CONFIGURING, PREVIEWING, CAPTURING, RECO
 enum class LogLevel { DEBUG, INFO, WARNING, ERROR }
 enum class CameraMode { PHOTO, VIDEO }
 enum class SensorPixelMode { DEFAULT, MAXIMUM_RESOLUTION }
+enum class VideoSessionMode { REGULAR, CONSTRAINED_HIGH_SPEED }
+
+data class FrameRateRange(val lower: Int, val upper: Int) {
+    init { require(lower > 0 && upper >= lower) }
+}
 
 data class Dimensions(val width: Int, val height: Int) {
     init { require(width > 0 && height > 0) }
@@ -23,6 +28,10 @@ data class CameraDescriptor(
     val previewSizes: List<Dimensions>,
     val rawSizes: List<Dimensions> = emptyList(),
     val videoSizes: List<Dimensions> = emptyList(),
+    val aeFrameRateRanges: List<FrameRateRange> = emptyList(),
+    val videoMinFrameDurationNs: Map<Dimensions, Long> = emptyMap(),
+    val highSpeedVideoFrameRateRanges: Map<Dimensions, List<FrameRateRange>> = emptyMap(),
+    val supportsAvc1080p60: Boolean = false,
     val maximumResolutionJpegSizes: List<Dimensions> = emptyList(),
     val maximumResolutionRawSizes: List<Dimensions> = emptyList(),
     val physicalIds: Set<String> = emptySet(),
@@ -54,7 +63,13 @@ data class PhotoConfiguration(
     val raw: Dimensions? = null,
     val sensorPixelMode: SensorPixelMode = SensorPixelMode.DEFAULT,
 )
-data class VideoConfiguration(val video: Dimensions, val preview: Dimensions, val mic: Boolean)
+data class VideoConfiguration(
+    val video: Dimensions,
+    val preview: Dimensions,
+    val mic: Boolean,
+    val fps: Int,
+    val sessionMode: VideoSessionMode,
+)
 data class PhotoPreferences(
     val grid: Boolean = false,
     val jpegQuality: Int = 95,

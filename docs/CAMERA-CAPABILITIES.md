@@ -103,7 +103,9 @@ tests exist. Listing a flag is not implementing that feature.
 - Photo uses actual still capture; manual options are exposed only when usable.
 - Portrait/Night use genuine supported Camera2 extension pipelines initially.
   Their availability is independent of LEVEL_3.
-- Video offers automatic supported recording configs.
+- Video currently offers only a complete 1920×1080 fixed-60-fps configuration:
+  real MediaRecorder size/timing, `[60,60]` range, writable request, AVC encoder,
+  matching preview and valid regular or constrained high-speed session.
 - Pro Video offers actual supported manual recording controls; manual values may
   be unavailable in constrained high-speed or extension configurations.
 - Software Portrait/Night fallbacks are deferred ideas, not silent substitutions.
@@ -153,6 +155,7 @@ from documentation. File evidence: TESTING execution record.
 | Regular RAW outputs | ID 0: 4080×3060; ID 1: 4128×3096; ID 2 reports one RAW size but its dimensions were not captured here; ID 3 reports none |
 | RAW+JPEG runtime | Correction-build logs show configured three-stream sessions and paired JPEG+DNG saves on IDs 0 and 1; files were not pulled/opened, so DNG validity/rotation remain unverified |
 | Standard Video runtime | Correction-build log shows ID 0 1920×1080 silent Video session configured; user reports FHD/30 recording works. File tracks, cadence, orientation and A/V sync were not independently inspected |
+| 1080p60 source | Capability-gated regular/constrained-session implementation is locally build-verified only; the phone's exact ranges, session acceptance and saved cadence are unknown |
 | Stabilization | User reports OIS does not work in current video. The app does not yet select/verify OIS or EIS modes, so stabilization remains unimplemented rather than a passed feature |
 
 Current implementation consequences (re-verify per new build/configuration):
@@ -167,6 +170,9 @@ Current implementation consequences (re-verify per new build/configuration):
   maximum-resolution JPEG/RAW maps, sensor-pixel-mode writability, full-session
   acceptance and saved dimensions are unknown. Existing 4080×3060 output is
   approximately 12.5 MP and must never be labeled 50 MP.
+- The installed correction also predates D-021. ID 0's reported high-speed
+  capability alone does not prove 1080p60; exact ranges, encoder gate, successful
+  new session and saved-frame timestamps must all be checked later.
 
 Populate additional facts here only after actual queries/tests, and link
 evidence from [TESTING.md](TESTING.md) and [PROGRESS.md](PROGRESS.md).

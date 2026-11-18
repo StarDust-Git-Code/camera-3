@@ -1,7 +1,8 @@
 # Goals and ideas
 
-Last updated: 2026-11-18. Baseline Photo, RAW/DNG and FHD/30 Video have partial
-device evidence; advanced processing/audio additions remain planned.
+Last updated: 2026-11-18. Baseline Photo, RAW/DNG and historical FHD/30 Video have
+partial device evidence. Current focused source permits only capability-gated
+1080p60; CI/device cadence evidence is pending. Advanced media work remains planned.
 
 ## Product goals
 

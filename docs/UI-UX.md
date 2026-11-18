@@ -10,7 +10,9 @@ Black background, quiet panels, white centered shutter/record control, truthful
 JPEG megapixel and MP4 summaries, portrait fitted live preview, actual camera-ID
 chips, grid and settings rows. RAW and HI-RES chips appear only for qualifying
 real configurations; HI-RES shows actual output MP and `MAX`, never a fixed 50 MP
-claim. Video is available only with a real recorder/preview pairing. Night,
+claim. Video is available only for a complete capability-gated 1080p60
+recorder/preview/session pairing and is labeled `1080p · 60 fps`; no 30 fps
+fallback is presented. Night,
 Portrait and Pro Video remain disabled. No fake system bars, scenery, hardware
 figures or Log profiles. Larger-text/accessibility and reference comparison remain.
 

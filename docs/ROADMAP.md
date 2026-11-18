@@ -101,6 +101,12 @@ UI (D-017). The correction build configured a real 1920×1080 Video session and
 the user reports FHD/30 recording works. MP4 tracks/cadence/orientation/A/V sync,
 repeated stop and cleanup were not independently inspected; boxes stay open.
 
+Focused D-021 update: source now permits only 1920×1080 at fixed 60 fps after
+camera timing/range, writable request, AVC encoder and preview validation. It can
+use a regular session or an explicitly advertised constrained high-speed session
+with generated request lists. Fifteen model + six app tests and the local full
+gate pass; CI and physical MP4 cadence evidence are pending, so M4/M5 boxes stay open.
+
 ## M5: Pro Video, HDR and high FPS
 
 - [ ] Manual recording controls supported by the active configuration.

@@ -5,6 +5,7 @@ import dev.camera3.model.CameraMode
 import dev.camera3.model.Dimensions
 import dev.camera3.model.HardwareLevel
 import dev.camera3.model.LensFacing
+import dev.camera3.model.FrameRateRange
 import dev.camera3.model.PhotoPreferences
 import dev.camera3.model.SensorPixelMode
 import org.junit.Assert.*
@@ -22,6 +23,10 @@ class CameraUiStateTest {
         rawSizes = listOf(Dimensions(4000, 3000)),
         videoSizes = listOf(Dimensions(1920, 1080)),
         capabilities = setOf("RAW"),
+        requestKeys = setOf("android.control.aeTargetFpsRange"),
+        aeFrameRateRanges = listOf(FrameRateRange(60, 60)),
+        videoMinFrameDurationNs = mapOf(Dimensions(1920, 1080) to 16_666_666L),
+        supportsAvc1080p60 = true,
     )
 
     private fun state(descriptor: CameraDescriptor = camera(), mode: CameraMode = CameraMode.PHOTO) = CameraUiState(
@@ -80,7 +85,7 @@ class CameraUiStateTest {
             for (descriptor in listOf(
                 fixture.copy(videoSizes = emptyList()),
                 fixture.copy(videoSizes = listOf(Dimensions(640, 480))),
-                fixture.copy(videoSizes = listOf(Dimensions(3840, 2160))),
+                fixture.copy(aeFrameRateRanges = listOf(FrameRateRange(30, 30))),
                 fixture.copy(previewSizes = listOf(Dimensions(1440, 1080))),
             )) {
                 val unavailable = state(descriptor, mode)

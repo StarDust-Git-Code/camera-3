@@ -17,7 +17,10 @@ MediaRecorder video pipelines are implemented; advanced GPU/codec/audio work is 
   `core/diagnostics`: bounded actor-style
   log writer. `core/model`: Android-independent capability/configuration policy.
 - RAW result/image pairing and streamed DNG saving exist. Standard Video currently
-  uses MediaRecorder with optional microphone audio; no app-owned MediaCodec,
+  uses MediaRecorder with optional microphone audio. The current focused policy
+  exposes only capability-gated 1920×1080 at fixed 60 fps; it chooses a regular
+  session or an explicitly reported constrained high-speed session and submits
+  the corresponding single request or generated burst list. No app-owned MediaCodec,
   AudioRecord, GPU color pipeline, extension session or analysis owner exists yet.
 
 The complete state machine and future pipeline contracts below remain targets;

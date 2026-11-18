@@ -5,7 +5,8 @@ APK restored preview/session opening on-device. Logs show JPEG+DNG save completi
 on IDs 0/1; the user reports FHD/30 recording works and OIS does not. The current
 maximum-resolution/smooth-zoom source is CI build-verified only; no phone access is
 authorized for this implementation phase. Commit `d0ccb40` passed CI run
-44298287574; its artifact is verified but not installed.
+44298287574; its artifact is verified but not installed. The focused D-021
+1080p60-only source passed the local full gate; publication/device evidence is pending.
 
 ## Evidence rules
 
@@ -179,6 +180,8 @@ work. DOC-04: platform/device constraints agree across canonical files.
 | 2026-11-18 | Maximum-resolution/smooth-zoom final local gate | Passed, local build-verified | Full command `:core:model:test testDebugUnitTest :app:lintDebug :app:assembleDebug` BUILD SUCCESSFUL in 36s. XML: 14 model + 6 app tests, 0 failures/errors/skips; lint 0 errors/16 warnings. Local APK 62,568,619 bytes, SHA256 `5E01DBFA7AFFBE77D3B3D89C4FAAB0948BB4B6ED173768FCF98637F362942D13`; v2 signature and package identity checked. No phone test |
 | 2026-11-18 | Maximum-resolution tranche documentation/diff check | Passed, host-observed | 21 Markdown files, 59 local links / 0 broken targets, 93-line HANDOFF; `git diff --check` clean before publication review |
 | 2026-11-18 | Maximum-resolution/smooth-zoom publication CI | Passed, CI/host-observed | Commit `d0ccb4003d45836f45df8ceeaeb7428becdf7145`, [run 44298287574](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44298287574), completed in 2m4s. Reports: 14 model + 6 app tests, 0 failures/ignored; lint 0 errors/17 warnings. APK and report uploads passed; Node/action/runtime and wrapper-executable annotations remain P-010 maintenance, not failures |
+| 2026-11-18 | Focused 1080p60 policy and local full gate | Passed, local build-verified | `:core:model:test testDebugUnitTest :app:lintDebug :app:assembleDebug` BUILD SUCCESSFUL in 1m12s. Reports: 15 model + 6 app tests, 0 failures/ignored; lint 0 errors/16 warnings. APK 62,568,739 bytes, SHA256 `244A1F0C4A2BA29E590BFC535DC92C6A6F9F195AB93B72279C2CD982C517E533`; v2 signature, package `dev.camera3.app`, minSdk35/targetSdk36 verified. Synthetic checks are not phone/session/cadence evidence |
+| 2026-11-18 | Focused 1080p60 documentation/diff check | Passed, host-observed | 21 Markdown files, 60 local links, 0 broken targets, 99-line HANDOFF; `git diff --check` clean before publication |
 
 Historical CI test reports cover only `:core:model:test` (nine initially,
 12 in RAW+Video CI). P-016 added five CI-green app state tests; the current local
@@ -186,6 +189,10 @@ tranche adds a sixth. These do not test Camera2, media, DataStore, logging,
 Compose or instrumentation. H-04 through H-08 remain incomplete; advanced
 physical checks remain partial or untested. The manual D-series passes do not
 create automated regression coverage.
+
+D-021 acceptance requires a saved 1920×1080 MP4 whose frame timestamps measure
+approximately 60 fps without systematic drops, plus successful session, playback,
+orientation and A/V checks. A `[60,60]` request or nominal track rate alone is not a pass.
 
 ## Verified APK builds and reports
 
