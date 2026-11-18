@@ -52,8 +52,12 @@ the behavior; tap metering and capture AF/AE locking remain unimplemented.
 - [ ] Add RAW_SENSOR/result pairing and valid DNG saving.
 - [ ] Validate RAW+JPEG size/stream combinations.
 - [ ] Add supported ISO/shutter/focus/WB and processing controls with feedback.
-- [ ] Add real zoom and accessible lens switching.
-- [ ] Implement Portrait/Night extension sessions where exposed.
+- [x] Add real zoom and accessible lens switching (baseline zoom 1.0–8.0 and
+  all four lens chips device-verified 2026-11-18).
+- [ ] Implement Portrait/Night extension sessions where exposed. Device facts:
+  this HAL advertises BOKEH(2) and BEAUTY(1) on all four lenses but not
+  NIGHT(4), so Portrait has a genuine extension path while Night must stay
+  disabled with that reason unless an alternative real pipeline is implemented.
 - [ ] Report unavailable modes and failed configurations accurately.
 
 Exit: every enabled still control affects actual capture; files and capture

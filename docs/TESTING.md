@@ -130,6 +130,8 @@ work. DOC-04: platform/device constraints agree across canonical files.
 | 2026-11-18 | D-19/D-20 settings + diagnostics UI | Partially passed | Settings render/persist (quality 100%, grid ON after user changes); diagnostics render real per-lens data (levels, zoom ranges, extension IDs 1/2, session ISO/exposure); Logs screen and share/export intent not yet exercised |
 | 2026-11-18 | JPEG quality setting effect | Consistent (not isolated) | Same 12.48 MP output across captures grew 1.79 → 4.66 → 9.38 MB while the user moved the slider to 100%; final large files consistent with max-quality encoding; no per-capture quality log line exists |
 | 2026-11-18 | Local fix compile | Passed | `:core:camera:compileDebugKotlin` BUILD SUCCESSFUL in 1m17s after P-011/P-012 fixes; corrupt bundletool cache removed first (P-013); CI rerun remains the authoritative gate |
+| 2026-11-18 | Fix commit CI run | Passed | Commit `6b8b35f`, [run 44240950175](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44240950175) concluded success (background watch) |
+| 2026-11-18 | Updated APK verification | Passed, host-observed | Downloaded `camera3-debug-apk`: 62,170,037 bytes, SHA256 `4f9d9661bc2e1d077090eef0be8e0d274bce2e029a81b1766698295840e30e44`, v2 signature verified, aapt2 confirms dev.camera3.app 0.1.0-dev minSDK35/targetSDK36; device install pending (phone disconnected at attempt) |
 
 Android `testDebugUnitTest` tasks were `NO-SOURCE` in all Android modules. Only
 the nine `:core:model:test` tests executed; do not describe this as camera engine,
@@ -139,7 +141,28 @@ untested. The first D-series checks ran manually on-device on 2026-11-18 and are
 recorded above with screenshots and pulled media; manual results do not create
 regression tests.
 
-## First verified APK and reports
+## Verified APK builds and reports
+
+Both builds are runner-debug-signed, not production release signing, and neither
+implies device verification beyond what the execution record states. Fresh CI
+keys can require uninstall/reinstall between builds; preserve needed app data
+first. All generated downloads are ignored by Git.
+
+### Fix build (current install candidate)
+
+- Run: [44240950175](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44240950175),
+  source commit `6b8b35f` (P-011/P-012 fixes + device-session docs); a
+  background watch observed conclusion success.
+- Local APK: `app/build/ci/44240950175/apk/app-debug.apk`; 62,170,037 bytes,
+  SHA256 `4f9d9661bc2e1d077090eef0be8e0d274bce2e029a81b1766698295840e30e44`.
+- Local reports: `app/build/ci/44240950175/reports/` (lint + nine model tests).
+- Build-tools 36.0.0 checks passed: `apksigner verify --verbose` (v2 signature)
+  and `aapt2 dump badging`: `dev.camera3.app`, versionCode 1 / `0.1.0-dev`,
+  minSDK35 / targetSDK36, Camera3 label, debuggable, launcher MainActivity.
+- Device install still pending (phone disconnected at the first attempt);
+  the deferred UI checks run after this build is installed.
+
+### First build (provenance)
 
 - Run: [44235722163](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44235722163),
   full source commit `9174a634e8fdaa38cdedf3745909f718157e65b3`.
@@ -149,18 +172,11 @@ regression tests.
   `2026-12-02T04:15:57Z`. GitHub sign-in may be required. Unzip `app-debug.apk`.
 - [verification-reports artifact](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44235722163/artifacts/14396794423):
   ID `14396794423`, expires `2026-12-02T04:15:59Z`.
-- Local APK: `app/build/ci/44235722163/apk/app-debug.apk`;
-  62,170,037 bytes (59.29 MiB), SHA256
-  `3ad2038f304eb4cd9d961ce018ec8ffe59c5027018f21d8bf37615da5a59d491`.
-- Local reports: `app/build/ci/44235722163/reports/`; full downloaded CI log:
-  `app/build/ci/44235722163/actions.log`. All generated downloads are ignored by Git.
-- Using installed Android SDK build tools 36.0.0, `apksigner.bat verify --verbose`
-  passed (one signer, v2 signature), and `aapt2.exe dump badging` passed:
-  `dev.camera3.app`, versionCode1 / `0.1.0-dev`, minSDK35 / targetSDK36,
-  Camera3 label, debuggable, `dev.camera3.app.MainActivity` launcher.
-- This is a runner-debug-signed build, not production release signing, install
-  evidence or proof of preview/capture/saved-media behavior. Fresh CI keys can
-  require uninstall/reinstall when changing builds; preserve needed app data first.
+- Local APK: `app/build/ci/44235722163/apk/app-debug.apk` (59.29 MiB, SHA256
+  `3ad2038f304eb4cd9d961ce018ec8ffe59c5027018f21d8bf37615da5a59d491`); this is
+  the build that passed the first device baseline session.
+- Local reports + CI log: `app/build/ci/44235722163/reports/`,
+  `app/build/ci/44235722163/actions.log`.
 
 ## First device baseline session (2026-11-18)
 

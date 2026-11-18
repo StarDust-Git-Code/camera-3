@@ -154,6 +154,10 @@ completed with fixes for two runtime findings awaiting the next CI build.
 - Remaining UI checks (Logs screen, share intent, full-caps detail, isolated
   quality-100 capture) deferred because the user was actively using the phone;
   adb input stopped and foreground verification noted in TESTING.
+- Pushed fixes + docs as `6b8b35f`; CI run 44240950175 passed (background
+  watch). Fix-build APK verified locally (SHA256, v2 signature, package/API)
+  with reports downloaded to `app/build/ci/44240950175/`; device install
+  pending because the phone was disconnected at the attempt.
 
 ## Active blockers
 

@@ -25,10 +25,12 @@ two runtime fixes await the next CI build + reinstall.
   (duplicate ISE close logs), P-012 full API-36 capability-name map in
   `CameraDiscovery` (5=READ_SENSOR_SETTINGS, 19=STREAM_USE_CASE, verified via
   javap on android.jar). P-001 closed; P-013 (corrupt bundletool cache) resolved.
-- Uncommitted now: `CameraEngine.kt`, `CameraDiscovery.kt` + docs (README,
-  ARCHITECTURE, CAMERA-CAPABILITIES, DECISIONS, DEVELOPMENT, HANDOFF,
-  LOGGING-AND-DIAGNOSTICS, PROBLEMS-AND-SOLUTIONS, PROGRESS, PROJECT-STRUCTURE,
-  ROADMAP, TECH-STACK, TESTING, UI-UX).
+- Pushed as `6b8b35f`; CI run 44240950175 passed (watched). Fix-build APK
+  verified locally: `app/build/ci/44240950175/apk/app-debug.apk`, SHA256
+  `4f9d9661…5840e30e44`, v2 signature/package checks passed; reports downloaded.
+  Device install is pending — the phone was disconnected at the attempt.
+- ROADMAP M3 now records the device facts (BOKEH(2)/BEAUTY(1) exposed,
+  NIGHT(4) not advertised).
 
 ## Implemented and device-verified (baseline Photo only)
 
@@ -67,9 +69,9 @@ two runtime fixes await the next CI build + reinstall.
 
 ## Exact next action
 
-1. Commit code fixes + docs, push to `origin/main`, watch the CI run with the
-   portable `gh`; on success download the APK artifact, verify package/SHA with
-   build-tools 36.0.0 and install (`-r`; uninstall/reinstall if keys differ).
+1. When the user reconnects the phone, verify it in `adb devices -l` and install
+   `app/build/ci/44240950175/apk/app-debug.apk` (`install -r`; if the runner's
+   debug key changed, uninstall/reinstall and note the settings reset).
 2. With the phone idle and Camera3 foreground-verified, finish deferred checks:
    Logs screen render + share/export intent, "View full capabilities" detail,
    one fresh quality-100 capture, clean close logs (P-011), capability labels
