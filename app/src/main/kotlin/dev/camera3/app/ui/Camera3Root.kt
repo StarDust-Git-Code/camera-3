@@ -145,7 +145,7 @@ private fun ColumnScope.CameraScreen(
     val changingAllowed = ui.runtime.phase != CameraPhase.CAPTURING
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween) {
-        IconButton(onClick = model::torch, enabled = ready && ui.selected?.flashAvailable == true) {
+        IconButton(onClick = model::torch, enabled = ready && ui.selected?.supportsTorch == true) {
             Icon(if (ui.runtime.torch) Icons.Default.FlashOn else Icons.Default.FlashOff, "Toggle continuous torch")
         }
         Text("JPEG", style = MaterialTheme.typography.labelMedium,

@@ -1,7 +1,7 @@
 # Progress and evidence
 
 Last updated: 2026-11-18. Initial Photo implementation exists. User requested
-GitHub Actions APK compilation; first remote build is pending.
+ GitHub Actions APK compilation; first run failed before compilation, fix rerun pending.
 
 ## Current summary
 
@@ -17,8 +17,8 @@ GitHub Actions APK compilation; first remote build is pending.
 | Android scaffold | Implemented, uncompiled | Six modules, API35 minimum/API36 target, verified wrapper JAR |
 | Photo/settings/logger | Implemented, unverified | Real Camera2/JPEG/MediaStore, grid/quality DataStore, diagnostics/logs/share source |
 | Recording/RAW/extensions/manual | Not implemented | Disabled or diagnostics-only, no fake pipeline |
-| GitHub Actions | Workflow implemented | Target repository inspected empty; first push/run pending |
-| App builds/tests/device validation | Not run | Eight policy unit tests exist but have not executed; no physical evidence |
+| GitHub Actions | Pushed; first run failed | `9e4686c`, run 44235279035: sdkmanager missing; explicit SDK setup added |
+| App builds/tests/device validation | Not run | Nine policy unit tests exist; first CI failed before compile; no physical evidence |
 | APK/delivery | Not available | No build artifact |
 
 ## Completed record
@@ -58,8 +58,8 @@ GitHub Actions APK compilation; first remote build is pending.
 
 ## Next tasks
 
-1. Commit/push source and `.github/workflows/android.yml` to the specified empty
-   repository without force; run CI and repair compiler/lint failures.
+1. Commit/push explicit SDK setup and review corrections; follow the rerun and
+   repair actual compiler/lint failures.
 2. Record the actual Actions run/artifact/test result, not expected success.
 3. Connect/authorize the phone for baseline OS/capability/media/lifecycle tests.
 4. Continue the roadmap only after assessing baseline failures; advanced modes
@@ -81,6 +81,18 @@ GitHub Actions APK compilation; first remote build is pending.
   intended owner account. Remote API reports public/empty; no refs from ls-remote.
 - User supplied the UI reference again and requested GitHub Actions compilation;
   workflow pins verified action SHAs and uploads debug APK + verification reports.
+
+### 2026-11-18: First push and CI infrastructure failure
+
+- Published 58 source/document/build files to the inspected empty repository,
+  `main`, commit `9e4686c`; no force push. Commit author explicitly OpenCode Agent.
+- Portable official GitHub CLI v2.105.0 downloaded into approved temp storage;
+  release SHA256 verified. Git credential used only in process memory for Actions
+  inspection; not printed or persisted in source.
+- Run 44235279035 failed at SDK installation: `sdkmanager` not on PATH, exit127.
+  Model tests and app compilation did not run. Corrected explicit SDK setup (P-009).
+- Independent review corrected rotation expression precedence, torch writable-key
+  gating, added a ninth model test and `.gitattributes`. Rerun pending.
 
 ## Active blockers
 

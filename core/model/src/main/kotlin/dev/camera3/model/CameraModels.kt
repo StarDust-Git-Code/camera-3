@@ -32,6 +32,7 @@ data class CameraDescriptor(
     val details: Map<String, String> = emptyMap(),
 ) {
     val label: String get() = "${facing.name.lowercase().replaceFirstChar { it.uppercase() }} · ID $id"
+    val supportsTorch: Boolean get() = flashAvailable && "android.flash.mode" in requestKeys
 }
 
 data class PhotoConfiguration(val jpeg: Dimensions, val preview: Dimensions)

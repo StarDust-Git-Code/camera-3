@@ -49,4 +49,9 @@ class CameraPolicyTest {
     @Test fun preferenceRangeIsValidated() {
         assertThrows(IllegalArgumentException::class.java) { PhotoPreferences(jpegQuality = 0) }
     }
+    @Test fun torchRequiresHardwareAndWritableRequestKey() {
+        assertFalse(camera().copy(flashAvailable = true).supportsTorch)
+        assertFalse(camera().copy(requestKeys = setOf("android.flash.mode")).supportsTorch)
+        assertTrue(camera().copy(flashAvailable = true, requestKeys = setOf("android.flash.mode")).supportsTorch)
+    }
 }

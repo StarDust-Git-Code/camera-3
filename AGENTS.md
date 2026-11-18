@@ -68,8 +68,8 @@ capability, file, measurement or successful test.
 - A capability flag is not proof of a working output, especially with a modified
   camera library. Check configuration, capture results and saved media.
 - Validate changes incrementally. Follow [docs/TESTING.md](docs/TESTING.md).
-- Build commands in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) are planned until
-  the Gradle project exists. Do not report them as already executed.
+- Gradle project/wrapper now exist. Use [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+  and the GitHub Actions workflow for commands; report only actual run outcomes.
 - No subagent delegation is authorized by this file; follow the current user's
   and harness's delegation rules.
 

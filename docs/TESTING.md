@@ -1,7 +1,7 @@
 # Testing and evidence
 
-Last updated: 2026-11-18. Initial source and eight model unit tests exist. No
-application build, automated application test or physical-device test has run yet.
+Last updated: 2026-11-18. Initial source and nine model unit tests exist. First
+CI attempt failed during SDK setup, before application compilation/tests.
 
 ## Evidence rules
 
@@ -110,6 +110,7 @@ work. DOC-04: platform/device constraints agree across canonical files.
 | 2026-11-18 | Gradle wrapper verification | Passed | Official Gradle 8.13 JAR SHA256 matched; distribution checksum pinned |
 | 2026-11-18 | Remote inspection | Empty public target | GitHub API size=0; `git ls-remote` returned no repository refs |
 | 2026-11-18 | H-01 / H-02 / policy tests | Pending | GitHub Actions workflow and test source exist; execution not claimed |
+| 2026-11-18 | First CI infrastructure run | Failed before compile | [Run 44235279035](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44235279035), commit 9e4686c: sdkmanager missing, exit127; explicit SDK setup added, rerun pending |
 
 No H-series or D-series test has run. Update this table with actual outcomes,
 not expected results.

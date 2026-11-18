@@ -228,7 +228,7 @@ class CameraEngine(
     }
     fun toggleTorch() = post {
         val run = active ?: return@post
-        if (run.closing || _runtime.value.phase != CameraPhase.PREVIEWING || !run.source.camera.flashAvailable) return@post
+        if (run.closing || _runtime.value.phase != CameraPhase.PREVIEWING || !run.source.camera.supportsTorch) return@post
         val previous = _runtime.value
         try {
             _runtime.value = previous.copy(torch = !previous.torch)

@@ -83,6 +83,10 @@ point to the SDK if local checks are needed; it is ignored and not published.
 - Follow the run at `https://github.com/StarDust-Git-Code/camera-3/actions`.
 - Success/download/install evidence must be recorded in TESTING/PROGRESS.
 - Never publish local.properties, keystores, device identifiers or raw test media.
+- First CI run lacked `sdkmanager` on PATH; explicitly set up Android command-line
+  tools using the pinned setup-android action before installing SDK packages.
+- Verified portable GitHub CLI is available in the approved temp directory (see
+  HANDOFF); use Git Credential Manager via process memory, never source/token files.
 - Fresh CI debug signing keys are disposable; updates from different runs may
   require uninstall/reinstall. Stable signing is a separate future decision.
 

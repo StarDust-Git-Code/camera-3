@@ -74,8 +74,6 @@ bugs. Initial implementation exists; compile and physical-runtime checks are pen
 - **Resolution:** if exact visual comparison is needed later, use a real saved
   reference supplied/accessible in the project and record its path.
 
-## Investigation template for future actual issues
-
 ## P-007: PowerShell checksum response type
 
 - **Status:** resolved, host-verified 2026-11-18.
@@ -95,6 +93,22 @@ bugs. Initial implementation exists; compile and physical-runtime checks are pen
   AGP 8.13.2 / Gradle 8.13. See D-013 and SOURCES.
 
 ### Investigation template
+
+## P-009: First CI run has no sdkmanager on PATH
+
+- **Observed failure:** Actions run
+  `https://github.com/StarDust-Git-Code/camera-3/actions/runs/44235279035`
+  at commit `9e4686c`; SDK install step returned exit 127, `sdkmanager: command
+  not found`. No Gradle compile or app tests ran in that attempt.
+- **Fix implemented:** explicitly run pinned `android-actions/setup-android` v3
+  before package installation; request `platform-tools` rather than the obsolete
+  default `tools` package. Do not assume runner preinstalled tools are on PATH.
+- **Independent source review:** parenthesized rotation formula's inline `if`
+  to avoid Kotlin expression precedence; torch now requires both hardware and
+  writable flash key; added a ninth policy regression test and line-ending rules.
+- **Status:** corrected workflow/source awaiting rerun; not yet a verified fix.
+
+### Future issue template
 
 For each real issue add an ID, status, first observed date, affected version/
 device/configuration, reproduction, expected/actual behavior, evidence, working

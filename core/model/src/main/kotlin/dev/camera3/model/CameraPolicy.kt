@@ -28,7 +28,7 @@ object CameraPolicy {
     }
 
     fun relativeRotation(sensorOrientation: Int, displayDegrees: Int, front: Boolean): Int =
-        (sensorOrientation - displayDegrees * if (front) 1 else -1 + 360) % 360
+        (sensorOrientation - displayDegrees * (if (front) 1 else -1) + 360) % 360
 
     // Display#getRotation is counterclockwise. JPEG_ORIENTATION uses clockwise device orientation.
     fun jpegOrientation(sensorOrientation: Int, displayDegrees: Int, front: Boolean): Int =
