@@ -184,6 +184,43 @@ the older proposals below are retained as design history.
 - **Consequence:** naming changes are diagnostic labels only; per-lens key and
   range revalidation still gates any newly exposed control (D-004).
 
+## D-016: RAW (DNG) still-capture pipeline
+
+- **Status:** implemented engineering choice, 2026-11-18; build-verified locally
+  (11 model tests, all touched modules compile); device verification pending.
+- **Problem:** M3 requires real RAW_SENSOR output paired with the existing JPEG
+  capture, without inventing capability or mislabeling untested work.
+- **Approach:**
+  - Discovery reads `getOutputSizes(ImageFormat.RAW_SENSOR)` into
+    `CameraDescriptor.rawSizes` (defensive query, per-lens detail entry).
+  - `supportsRaw` = capability `RAW` advertised **and** real RAW sizes reported;
+    the UI RAW chip only appears when this is true.
+  - `CameraPolicy.configuration(camera, rawEnabled)` pairs the largest
+    aspect-matching (±0.03) RAW size with the chosen JPEG only when RAW is
+    advertised; no aspect-compatible RAW size means no configuration rather than
+    a fake pairing.
+  - The engine adds a second `ImageReader` (`RAW_SENSOR`, maxImages 2) when the
+    configuration carries `raw`, targets both JPEG+RAW surfaces in one still
+    request, pairs the `TotalCaptureResult` with the RAW `Image` (result and
+    frame may arrive in either order), and writes the DNG in the IO scope.
+    The capture stays in `CAPTURING` until **both** outputs settle; the
+    watchdog re-arms per remaining output (12 s each).
+  - `isSessionConfigurationSupported` remains the honest gate for the
+    3-stream combination; rejection fails with an explicit message.
+  - `PhotoStore.saveDng` streams into MediaStore (`image/x-adobe-dng`,
+    `DCIM/Camera3`), pending→publish→cleanup like JPEG.
+- **Verified platform facts (javap on android-36/android.jar):** `DngCreator`'s
+  constructor is `(CameraCharacteristics, CaptureResult)` and no `setResult`
+  exists at API 36 — metadata is bound at construction. `setOrientation` takes
+  EXIF 1–8 values (0°→1, 90°→6, 180°→3, 270°→8), not degrees; the JPEG request
+  still uses degrees.
+- **Limits:** RAW is same-request paired with JPEG (no separate sensor modes);
+  no thumbnail is embedded; zoom crop applies to RAW output as the HAL reports.
+  A failing JPEG no longer abandons its in-flight DNG.
+- **Consequence:** every expected output must settle before the phase returns
+  to `PREVIEWING`; partial outcomes are reported per-output in the runtime
+  message (e.g. "JPEG saved, DNG failed: …").
+
 ### New-decision template
 
 Add the next ID with status, date, problem, chosen approach, inspected sources/

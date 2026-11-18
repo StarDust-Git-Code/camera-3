@@ -54,4 +54,19 @@ class CameraPolicyTest {
         assertFalse(camera().copy(requestKeys = setOf("android.flash.mode")).supportsTorch)
         assertTrue(camera().copy(flashAvailable = true, requestKeys = setOf("android.flash.mode")).supportsTorch)
     }
+    @Test fun supportsRawNeedsCapabilityAndRealSizes() {
+        assertFalse(camera().copy(rawSizes = listOf(Dimensions(4000, 3000))).supportsRaw)
+        assertFalse(camera().copy(capabilities = setOf("RAW")).supportsRaw)
+        assertTrue(camera().copy(capabilities = setOf("RAW"), rawSizes = listOf(Dimensions(4000, 3000))).supportsRaw)
+    }
+    @Test fun rawPairsOnlyWhenAdvertisedAndAspectMatching() {
+        val raw = Dimensions(4080, 3060)
+        val advertised = camera().copy(capabilities = setOf("RAW"), rawSizes = listOf(raw))
+        assertEquals(raw, CameraPolicy.configuration(advertised, true)?.raw)
+        assertNull(CameraPolicy.configuration(advertised, false)?.raw)
+        // Sizes reported without the capability must not enable a RAW stream.
+        assertNull(CameraPolicy.configuration(camera().copy(rawSizes = listOf(raw)), true)?.raw)
+        // Capability reported but no aspect-matching size: no configuration is invented.
+        assertNull(CameraPolicy.configuration(advertised.copy(rawSizes = listOf(Dimensions(1920, 1080))), true))
+    }
 }

@@ -6,6 +6,7 @@ import android.graphics.ImageFormat
 import android.hardware.camera2.*
 import android.hardware.camera2.params.OutputConfiguration
 import android.hardware.camera2.params.SessionConfiguration
+import android.media.Image
 import android.media.ImageReader
 import android.net.Uri
 import android.os.Handler
@@ -37,12 +38,23 @@ class CameraEngine(
     val lastPhoto = _lastPhoto.asStateFlow()
 
     private data class Source(val camera: CameraDescriptor, val config: PhotoConfiguration, val surface: Surface)
-    private class Run(val epoch: Long, val source: Source, val reader: ImageReader) {
+    // pendingJpeg/pendingRaw track save jobs from arrival to settle; a capture finishes only
+    // when every expected output has settled, so a failed JPEG still waits for its DNG.
+    private class Run(val epoch: Long, val source: Source, val reader: ImageReader, val rawReader: ImageReader?) {
         var device: CameraDevice? = null
         var session: CameraCaptureSession? = null
         var closing = false
         var deviceClosed = false
-        var imageJobs = 0
+        var readersClosed = false
+        var pendingJpeg = false
+        var pendingRaw = false
+        var savedJpeg = false
+        var savedDng = false
+        var jpegError: String? = null
+        var rawError: String? = null
+        var rawImage: Image? = null
+        var rawResult: TotalCaptureResult? = null
+        var exif = 1
         var captureId: Long? = null
         var timeout: Runnable? = null
         var lastTelemetry = 0L
@@ -102,11 +114,16 @@ class CameraEngine(
     @SuppressLint("MissingPermission") // Permission is gated by the app; revocation is caught as a real error.
     private fun open(source: Source) {
         val reader = ImageReader.newInstance(source.config.jpeg.width, source.config.jpeg.height, ImageFormat.JPEG, 2)
-        val run = Run(++epoch, source, reader)
+        val rawReader = source.config.raw?.let {
+            ImageReader.newInstance(it.width, it.height, ImageFormat.RAW_SENSOR, 2)
+        }
+        val run = Run(++epoch, source, reader, rawReader)
         active = run
         _runtime.value = CameraRuntime(CameraPhase.OPENING, source.camera.id, source.config, "Opening ${source.camera.label}")
         reader.setOnImageAvailableListener({ receiveImage(run) }, handler)
-        logger.log(LogLevel.INFO, "Camera", "Opening ID ${source.camera.id}, epoch=${run.epoch}, JPEG=${source.config.jpeg}, preview=${source.config.preview}")
+        rawReader?.setOnImageAvailableListener({ receiveRaw(run) }, handler)
+        logger.log(LogLevel.INFO, "Camera", "Opening ID ${source.camera.id}, epoch=${run.epoch}, JPEG=${source.config.jpeg}, preview=${source.config.preview}" +
+            (source.config.raw?.let { ", RAW=$it" } ?: ""))
         try {
             manager.openCamera(source.camera.id, executor, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
@@ -141,11 +158,13 @@ class CameraEngine(
 
     private fun configure(run: Run) {
         try {
-            _runtime.value = _runtime.value.copy(phase = CameraPhase.CONFIGURING, message = "Configuring JPEG + preview")
-            val outputs = listOf(
+            val streams = if (run.rawReader != null) "JPEG + RAW + preview" else "JPEG + preview"
+            _runtime.value = _runtime.value.copy(phase = CameraPhase.CONFIGURING, message = "Configuring $streams")
+            val outputs = mutableListOf(
                 OutputConfiguration(run.source.surface).apply { setMirrorMode(OutputConfiguration.MIRROR_MODE_AUTO) },
                 OutputConfiguration(run.reader.surface),
             )
+            if (run.rawReader != null) outputs += OutputConfiguration(run.rawReader.surface)
             val config = SessionConfiguration(SessionConfiguration.SESSION_REGULAR, outputs, executor,
                 object : CameraCaptureSession.StateCallback() {
                     override fun onConfigured(session: CameraCaptureSession) {
@@ -155,16 +174,18 @@ class CameraEngine(
                             session.setRepeatingRequest(request(run, CameraDevice.TEMPLATE_PREVIEW).apply {
                                 addTarget(run.source.surface)
                             }.build(), telemetry(run), handler)
-                            _runtime.value = _runtime.value.copy(phase = CameraPhase.PREVIEWING, message = "Photo · JPEG")
+                            _runtime.value = _runtime.value.copy(phase = CameraPhase.PREVIEWING,
+                                message = if (run.rawReader != null) "Photo · JPEG + RAW" else "Photo · JPEG")
                             logger.log(LogLevel.INFO, "Session", "Preview configured: epoch=${run.epoch}")
                         } catch (error: Exception) { fail(run, "Cannot start camera preview", error) }
                     }
                     override fun onConfigureFailed(session: CameraCaptureSession) {
                         session.close()
-                        if (!run.closing && active === run) fail(run, "JPEG + preview configuration rejected by camera")
+                        if (!run.closing && active === run) fail(run, "$streams configuration rejected by camera")
                     }
                 })
             // Some HALs don't implement this query; successful configuration is still required.
+            // With RAW this probe is the honest gate for the 3-stream combination.
             val supported = try { run.device!!.isSessionConfigurationSupported(config) }
                 catch (error: UnsupportedOperationException) {
                     logger.log(LogLevel.WARNING, "Session", "Session support query unavailable; trying advertised streams", error)
@@ -247,24 +268,31 @@ class CameraEngine(
         if (_runtime.value.phase != CameraPhase.PREVIEWING || run.closing || run.captureId != null) return@post
         val id = ++captureSequence
         run.captureId = id
+        run.savedJpeg = false
+        run.savedDng = false
+        run.jpegError = null
+        run.rawError = null
+        run.rawResult = null
         _runtime.value = _runtime.value.copy(phase = CameraPhase.CAPTURING, message = "Capturing and saving…")
         try {
             val orientation = CameraPolicy.jpegOrientation(run.source.camera.sensorOrientation, displayDegrees,
                 run.source.camera.facing == LensFacing.FRONT)
+            // JPEG_ORIENTATION is degrees; the DNG orientation tag takes EXIF 1–8 values.
+            run.exif = when (orientation) { 90 -> 6; 180 -> 3; 270 -> 8; else -> 1 }
             val builder = request(run, CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
                 addTarget(run.reader.surface)
+                if (run.rawReader != null) addTarget(run.rawReader.surface)
                 set(CaptureRequest.JPEG_ORIENTATION, orientation)
                 set(CaptureRequest.JPEG_QUALITY, preferences.jpegQuality.toByte())
-                setTag(id)
             }
-            run.timeout = Runnable {
-                if (active === run && run.captureId == id && run.imageJobs == 0) {
-                    fail(run, "Timed out waiting for JPEG capture $id")
-                }
-            }.also { handler.postDelayed(it, 12_000) }
+            rearmTimeout(run, id)
             run.session!!.capture(builder.build(), object : CameraCaptureSession.CaptureCallback() {
                 override fun onCaptureCompleted(session: CameraCaptureSession, request: CaptureRequest, result: TotalCaptureResult) {
                     logger.log(LogLevel.INFO, "Capture", "JPEG $id result: epoch=${run.epoch}, orientation=$orientation, ISO=${result[CaptureResult.SENSOR_SENSITIVITY]}, exposureNs=${result[CaptureResult.SENSOR_EXPOSURE_TIME]}")
+                    if (run.rawReader != null) {
+                        run.rawResult = result
+                        tryProcessRaw(run)
+                    }
                 }
                 override fun onCaptureFailed(session: CameraCaptureSession, request: CaptureRequest, failure: CaptureFailure) {
                     if (active === run && !run.closing) fail(run, "Photo $id failed: reason=${failure.reason}")
@@ -273,15 +301,26 @@ class CameraEngine(
         } catch (error: Exception) { fail(run, "Cannot capture photo $id", error) }
     }
 
+    // The watchdog fires only while no save job is in flight; each settled output re-arms it
+    // for the remaining output, so a slow DNG never gets a healthy JPEG killed early.
+    private fun rearmTimeout(run: Run, id: Long) {
+        run.timeout?.let { handler.removeCallbacks(it) }
+        run.timeout = Runnable {
+            if (active === run && !run.closing && run.captureId == id && !run.pendingJpeg && !run.pendingRaw) {
+                fail(run, "Timed out waiting for capture $id")
+            }
+        }.also { handler.postDelayed(it, 12_000) }
+    }
+
     private fun receiveImage(run: Run) {
         val image = try { run.reader.acquireNextImage() } catch (error: Exception) {
             if (!run.closing) fail(run, "Cannot acquire JPEG", error)
             return
         } ?: return
         val id = run.captureId
-        if (id == null || run.closing || run.imageJobs > 0) { image.close(); return }
-        run.timeout?.let { handler.removeCallbacks(it) }
-        run.imageJobs++; imageJobs++
+        if (id == null || run.closing || run.pendingJpeg) { image.close(); return }
+        run.pendingJpeg = true
+        imageJobs++
         ioScope.launch(Dispatchers.IO) {
             val outcome = runCatching {
                 val bytes = try {
@@ -291,22 +330,90 @@ class CameraEngine(
                 store.saveJpeg(bytes)
             }
             handler.post {
-                run.imageJobs--; imageJobs--
-                run.captureId = null
+                run.pendingJpeg = false
+                run.savedJpeg = outcome.isSuccess
                 outcome.onSuccess { uri ->
                     _lastPhoto.value = uri
                     logger.log(LogLevel.INFO, "Storage", "JPEG $id saved to DCIM/Camera3")
-                    if (active === run && !run.closing) _runtime.value = _runtime.value.copy(
-                        phase = CameraPhase.PREVIEWING, message = "Photo saved to DCIM/Camera3")
                 }.onFailure { error ->
+                    run.jpegError = error.message ?: "JPEG save failed"
                     logger.log(LogLevel.ERROR, "Storage", "JPEG $id could not be saved", error)
-                    if (active === run && !run.closing) _runtime.value = _runtime.value.copy(
-                        phase = CameraPhase.PREVIEWING, message = "Photo was not saved: ${error.message}")
                 }
-                releaseReaderIfSafe(run)
-                quitIfSafe()
+                finishCapture(run, id)
             }
         }
+    }
+
+    private fun receiveRaw(run: Run) {
+        val reader = run.rawReader ?: return
+        val image = try { reader.acquireNextImage() } catch (error: Exception) {
+            if (!run.closing) fail(run, "Cannot acquire RAW frame", error)
+            return
+        } ?: return
+        if (run.closing || run.captureId == null || run.pendingRaw || run.rawImage != null) { image.close(); return }
+        run.rawImage = image
+        tryProcessRaw(run)
+    }
+
+    // Handler thread. DngCreator needs the capture result and the RAW image; they can arrive in
+    // either order, so the frame is held until both are present.
+    private fun tryProcessRaw(run: Run) {
+        if (run.closing) { run.rawImage?.let { image -> run.rawImage = null; runCatching { image.close() } }; return }
+        val result = run.rawResult ?: return
+        val image = run.rawImage ?: return
+        val id = run.captureId
+        if (id == null) { run.rawImage = null; runCatching { image.close() }; return }
+        run.rawImage = null
+        run.pendingRaw = true
+        imageJobs++
+        ioScope.launch(Dispatchers.IO) {
+            val outcome = runCatching {
+                // DngCreator takes its metadata at construction: characteristics + this capture's result.
+                DngCreator(manager.getCameraCharacteristics(run.source.camera.id), result).use { creator ->
+                    creator.setOrientation(run.exif)
+                    store.saveDng { output -> creator.writeImage(output, image) }
+                }
+            }
+            runCatching { image.close() }
+            handler.post {
+                run.pendingRaw = false
+                run.savedDng = outcome.isSuccess
+                outcome.onSuccess { uri -> _lastPhoto.value = uri }
+                outcome.onSuccess { logger.log(LogLevel.INFO, "Storage", "DNG $id saved to DCIM/Camera3") }
+                outcome.onFailure { error ->
+                    run.rawError = error.message ?: "DNG write failed"
+                    logger.log(LogLevel.ERROR, "Storage", "DNG $id could not be written", error)
+                }
+                finishCapture(run, id)
+            }
+        }
+    }
+
+    // Handler thread. Called once per settled output; the capture closes when every expected
+    // output has settled, and each partial settle re-arms the watchdog for the remainder.
+    private fun finishCapture(run: Run, id: Long) {
+        imageJobs--
+        if (run.captureId == id) {
+            if (run.pendingJpeg || run.pendingRaw) rearmTimeout(run, id)
+            else {
+                run.captureId = null
+                run.timeout?.let { handler.removeCallbacks(it) }
+                run.timeout = null
+                // A RAW frame that never got its result must not stay held forever.
+                run.rawImage?.let { image -> run.rawImage = null; runCatching { image.close() } }
+                val message = if (run.rawReader != null) when {
+                    run.savedJpeg && run.savedDng -> "JPEG + DNG saved to DCIM/Camera3"
+                    run.savedJpeg -> "JPEG saved, DNG failed: ${run.rawError ?: "RAW output never completed"}"
+                    run.savedDng -> "DNG saved, JPEG failed: ${run.jpegError ?: "JPEG output never completed"}"
+                    else -> "Capture not saved: ${run.jpegError ?: run.rawError ?: "no output completed"}"
+                } else if (run.savedJpeg) "Photo saved to DCIM/Camera3"
+                else "Photo was not saved: ${run.jpegError ?: "JPEG output never completed"}"
+                if (active === run && !run.closing) _runtime.value = _runtime.value.copy(
+                    phase = CameraPhase.PREVIEWING, message = message)
+            }
+        }
+        releaseReaderIfSafe(run)
+        quitIfSafe()
     }
 
     private fun close(run: Run) {
@@ -323,7 +430,12 @@ class CameraEngine(
         run.device?.close() // If still opening, onOpened will close it before configuring.
     }
     private fun releaseReaderIfSafe(run: Run) {
-        if (run.deviceClosed && run.imageJobs == 0) run.reader.close()
+        if (!run.deviceClosed || run.readersClosed) return
+        if (run.pendingJpeg || run.pendingRaw) return // a save job still needs its reader
+        run.readersClosed = true
+        run.rawImage?.let { image -> run.rawImage = null; runCatching { image.close() } }
+        run.rawReader?.close()
+        run.reader.close()
     }
     private fun fail(run: Run?, message: String, error: Throwable? = null) {
         if (run != null && active !== run) return

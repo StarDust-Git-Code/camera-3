@@ -186,6 +186,38 @@ next device run.
   remains the authoritative build gate.
 - **Status:** resolved for this host/session; no project file changed.
 
+## P-014: DngCreator API mismatch in the first RAW implementation
+
+- **First observed:** 2026-11-18 during the local compile of the RAW pipeline.
+- **Affected:** this session's draft `CameraEngine.tryProcessRaw()` only (never
+  committed).
+- **Observed:** `:core:camera:compileDebugKotlin` failed with
+  `No value passed for parameter 'p0'/'p1'` at the `DngCreator()` construction
+  and `Unresolved reference 'setResult'` (CameraEngine.kt:371/373).
+- **Verification:** `javap -classpath <sdk>/platforms/android-36/android.jar
+  android.hardware.camera2.DngCreator` — the API-36 class has one constructor,
+  `DngCreator(CameraCharacteristics, CaptureResult)`, and no `setResult`
+  method; metadata is bound at construction. The earlier working note that
+  assumed a no-arg constructor plus `setResult` was wrong.
+- **Fix:** construct `DngCreator(manager.getCameraCharacteristics(cameraId),
+  result)` on the still capture's `TotalCaptureResult`; `setOrientation` and
+  `writeImage` unchanged. Recorded in D-016 so the design stays javap-verified.
+- **Status:** fixed; full touched-module compile passed.
+
+## P-015: "Missing return statement" in a plain function with a try/catch tail
+
+- **First observed:** 2026-11-18 during the same local compile, module
+  `:core:media`, `PhotoStore.insert()` written as a plain function whose body
+  ended in a bare `try { … uri } catch { … throw }` tail.
+- **Observed:** Kotlin compiler error `Missing return statement` at the
+  function's closing brace (PhotoStore.kt:51:5), although the pre-refactor
+  code compiled with the same shape as the tail expression of a
+  `withContext { }` lambda.
+- **Fix:** added an explicit `return` before the try/catch; the module then
+  compiled. The root cause in the K2 frontend was not investigated further;
+  the fix is behavior-neutral.
+- **Status:** resolved; recorded because the failing shape looked idiomatic.
+
 ### Future issue template
 
 For each real issue add an ID, status, first observed date, affected version/

@@ -158,14 +158,44 @@ completed with fixes for two runtime findings awaiting the next CI build.
   watch). Fix-build APK verified locally (SHA256, v2 signature, package/API)
   with reports downloaded to `app/build/ci/44240950175/`; device install
   pending because the phone was disconnected at the attempt.
+- Docs checkpoint `6212f3c` pushed and CI-green (run 44243301133); its ledger
+  row rides with the next batch to avoid a docs-push loop.
+
+### 2026-11-18: Fix build installed; RAW/DNG pipeline implemented
+
+- The fix build was installed on the phone: `install -r` rejected it because
+  the fresh runner re-signed the APK (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`);
+  uninstall + streamed install succeeded, the system dialog re-granted CAMERA,
+  and the DataStore reset (quality 95%, grid OFF) was confirmed — the grid was
+  re-enabled in-app and the quality slider was deliberately left at 95%
+  (user decision; no more slider work). DCIM photos survived the reinstall.
+- User direction for this phase: work on RAW first, then Video; stop spending
+  time on the quality slider (95% accepted).
+- RAW/DNG pipeline implemented per D-016 across model/policy/tests, discovery,
+  engine, PhotoStore, settings, ViewModel and the camera UI: RAW chip only on
+  lenses advertising RAW with real sizes, aspect-matched pairing (±0.03) with
+  no invented streams, dual-surface still capture, result/image pairing with
+  re-arming watchdog, `DngCreator` with javap-verified metadata/EXIF handling
+  (P-014), streamed MediaStore DNG save, honest per-output completion messages.
+- Local verification: `:core:model:test` 11 tests 0 failures (two new RAW
+  pairing tests) and all touched modules compile (P-014/P-015 recorded).
+  CI remains the authoritative gate; nothing is device-verified yet.
+- Device verification for RAW (chip per lens, session-probe outcome, saved DNG
+  + rotation) and the deferred UI checks (Logs/share, full-caps detail, clean
+  close logs, capability labels) ride with the next device session.
+- Video (M4) is planned next after RAW device verification: MediaRecorder
+  surface pairing, record/stop state machine, orientation hint, silent mode
+  without mic grant, session reconfiguration.
 
 ## Active blockers
 
-- **P-004:** advanced-pipeline claims still need per-pipeline runtime evidence.
+- **P-004:** advanced-pipeline claims still need per-pipeline runtime evidence;
+  the RAW pipeline is now implemented but shares this status until verified.
 - **P-010:** reviewed nonblocking warnings; backup/transfer policy and action
   runtime/executable-mode maintenance remain follow-ups.
-- **P-011/P-012:** fixes await the next CI build + device re-verification.
-- No hard blocker; the user controls phone availability for deferred checks.
+- **P-011/P-012:** fix build is installed; clean close logs and capability
+  labels still need the next device session.
+- **P-013:** resolved. No hard blocker; the user controls phone availability.
 
 ## Update policy
 

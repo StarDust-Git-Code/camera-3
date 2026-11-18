@@ -132,6 +132,9 @@ work. DOC-04: platform/device constraints agree across canonical files.
 | 2026-11-18 | Local fix compile | Passed | `:core:camera:compileDebugKotlin` BUILD SUCCESSFUL in 1m17s after P-011/P-012 fixes; corrupt bundletool cache removed first (P-013); CI rerun remains the authoritative gate |
 | 2026-11-18 | Fix commit CI run | Passed | Commit `6b8b35f`, [run 44240950175](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44240950175) concluded success (background watch) |
 | 2026-11-18 | Updated APK verification | Passed, host-observed | Downloaded `camera3-debug-apk`: 62,170,037 bytes, SHA256 `4f9d9661bc2e1d077090eef0be8e0d274bce2e029a81b1766698295840e30e44`, v2 signature verified, aapt2 confirms dev.camera3.app 0.1.0-dev minSDK35/targetSDK36; device install pending (phone disconnected at attempt) |
+| 2026-11-18 | Docs checkpoint push CI | Passed | Commit `6212f3c`, [run 44243301133](https://github.com/StarDust-Git-Code/camera-3/actions/runs/44243301133) concluded success (identical app sources to 6b8b35f); no new artifact downloaded |
+| 2026-11-18 | Reinstall of the fix build | Passed | `install -r` failed (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`, fresh runner debug key) → uninstall + streamed install Success; system dialog re-granted CAMERA; DataStore reset observed (quality 95%, grid OFF); grid re-enabled in-app; quality left at 95% (user decision); DCIM photos survived |
+| 2026-11-18 | RAW pipeline local build | Passed, build-verified | `:core:model:test` 11 tests 0 failures (incl. 2 new RAW pairing tests) + `:core:camera|media|settings:compileDebugKotlin` + `:app:compileDebugKotlin` BUILD SUCCESSFUL; two real compile errors found and fixed (P-014, P-015); CI rerun remains the authoritative gate |
 
 Android `testDebugUnitTest` tasks were `NO-SOURCE` in all Android modules. Only
 the nine `:core:model:test` tests executed; do not describe this as camera engine,

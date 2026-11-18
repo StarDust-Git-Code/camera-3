@@ -19,6 +19,7 @@ data class CameraDescriptor(
     val sensorOrientation: Int,
     val jpegSizes: List<Dimensions>,
     val previewSizes: List<Dimensions>,
+    val rawSizes: List<Dimensions> = emptyList(),
     val physicalIds: Set<String> = emptySet(),
     val capabilities: Set<String> = emptySet(),
     val requestKeys: Set<String> = emptySet(),
@@ -33,10 +34,12 @@ data class CameraDescriptor(
 ) {
     val label: String get() = "${facing.name.lowercase().replaceFirstChar { it.uppercase() }} · ID $id"
     val supportsTorch: Boolean get() = flashAvailable && "android.flash.mode" in requestKeys
+    // A RAW stream is only offered when the lens both advertises the capability and reports real output sizes.
+    val supportsRaw: Boolean get() = "RAW" in capabilities && rawSizes.isNotEmpty()
 }
 
-data class PhotoConfiguration(val jpeg: Dimensions, val preview: Dimensions)
-data class PhotoPreferences(val grid: Boolean = false, val jpegQuality: Int = 95) {
+data class PhotoConfiguration(val jpeg: Dimensions, val preview: Dimensions, val raw: Dimensions? = null)
+data class PhotoPreferences(val grid: Boolean = false, val jpegQuality: Int = 95, val raw: Boolean = false) {
     init { require(jpegQuality in 50..100) }
 }
 data class CameraRuntime(

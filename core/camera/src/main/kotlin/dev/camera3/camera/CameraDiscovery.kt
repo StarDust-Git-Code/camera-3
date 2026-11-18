@@ -21,6 +21,11 @@ class CameraDiscovery(context: Context, private val logger: AppLogger) {
                 val caps = c[CC.REQUEST_AVAILABLE_CAPABILITIES]?.toSet().orEmpty()
                 val zoom = c[CC.CONTROL_ZOOM_RATIO_RANGE]
                 val keys = c.availableCaptureRequestKeys.map { it.name }.toSet()
+                val rawSizes = try { map?.getOutputSizes(ImageFormat.RAW_SENSOR)?.map { Dimensions(it.width, it.height) }.orEmpty() }
+                    catch (error: Exception) {
+                        logger.log(LogLevel.WARNING, "Discovery", "RAW size query failed for ID $id", error)
+                        emptyList()
+                    }
                 val descriptor = CameraDescriptor(
                     id = id,
                     facing = when (c[CC.LENS_FACING]) {
@@ -40,6 +45,7 @@ class CameraDiscovery(context: Context, private val logger: AppLogger) {
                     sensorOrientation = c[CC.SENSOR_ORIENTATION] ?: 0,
                     jpegSizes = map?.getOutputSizes(ImageFormat.JPEG)?.map { Dimensions(it.width, it.height) }.orEmpty(),
                     previewSizes = map?.getOutputSizes(SurfaceHolder::class.java)?.map { Dimensions(it.width, it.height) }.orEmpty(),
+                    rawSizes = rawSizes,
                     physicalIds = c.physicalCameraIds,
                     capabilities = caps.map { capabilityName(it) }.toSet(),
                     requestKeys = keys,
@@ -63,9 +69,10 @@ class CameraDiscovery(context: Context, private val logger: AppLogger) {
                         "Video stabilization modes" to (c[CC.CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES]?.joinToString() ?: "Not reported"),
                         "Dynamic range profile IDs" to (c[CC.REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES]?.supportedProfiles?.joinToString() ?: "Not reported"),
                         "High-speed sizes" to (map?.highSpeedVideoSizes?.joinToString() ?: "Not reported"),
+                        "RAW output sizes" to (rawSizes.takeIf { it.isNotEmpty() }?.joinToString() ?: "Not reported"),
                     ),
                 )
-                logger.log(LogLevel.INFO, "Discovery", "ID $id: ${descriptor.facing}, ${descriptor.level}, JPEG sizes=${descriptor.jpegSizes.size}, capabilities=${descriptor.capabilities}")
+                logger.log(LogLevel.INFO, "Discovery", "ID $id: ${descriptor.facing}, ${descriptor.level}, JPEG sizes=${descriptor.jpegSizes.size}, RAW sizes=${descriptor.rawSizes.size}, capabilities=${descriptor.capabilities}")
                 descriptor
             } catch (error: Exception) {
                 logger.log(LogLevel.ERROR, "Discovery", "Cannot inspect camera ID $id", error)

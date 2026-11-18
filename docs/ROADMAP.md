@@ -64,6 +64,14 @@ Exit: every enabled still control affects actual capture; files and capture
 results substantiate support. No extension support means those modes remain
 unavailable, not substituted by ordinary Photo.
 
+RAW/DNG pipeline status (2026-11-18): implemented and build-verified locally —
+RAW_SENSOR discovery + `supportsRaw`, aspect-matched pairing policy with new
+model tests (11 passing), dual-surface still capture with result/image pairing,
+`DngCreator` (metadata bound at construction, EXIF orientation) and
+`PhotoStore.saveDng` to `DCIM/Camera3` (D-016). Device verification — chip
+visibility per lens, session probe outcome for the 3-stream combination, real
+DNG file + rotation — is pending the next install; the boxes above stay open.
+
 ## M4: Robust standard Video
 
 - [ ] Surface encoder, microphone/AAC when enabled, timestamps and muxing.

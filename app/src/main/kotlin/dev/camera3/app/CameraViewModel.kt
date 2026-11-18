@@ -30,7 +30,8 @@ data class CameraUiState(
 ) {
     val eligible get() = CameraPolicy.isEligible(cameras)
     val selected get() = cameras.firstOrNull { it.id == selectedId }
-    val configuration get() = selected?.let(CameraPolicy::configuration)
+    val rawEnabled get() = preferences.raw
+    val configuration get() = selected?.let { CameraPolicy.configuration(it, rawEnabled) }
 }
 
 class CameraViewModel(application: Application) : AndroidViewModel(application) {
@@ -81,11 +82,11 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         val state = _ui.value
         if (!state.eligible || state.runtime.phase == CameraPhase.CAPTURING) return
         val camera = state.cameras.firstOrNull { it.id == id } ?: return
-        if (CameraPolicy.configuration(camera) != null) _ui.update { it.copy(selectedId = id) }
+        if (CameraPolicy.configuration(camera, state.preferences.raw) != null) _ui.update { it.copy(selectedId = id) }
     }
     fun switchCamera() {
         val state = _ui.value
-        val choices = state.cameras.filter { CameraPolicy.configuration(it) != null }
+        val choices = state.cameras.filter { CameraPolicy.configuration(it, state.preferences.raw) != null }
         val opposite = choices.firstOrNull { it.facing != state.selected?.facing }
         val next = opposite ?: choices.getOrNull((choices.indexOf(state.selected) + 1) % choices.size.coerceAtLeast(1))
         next?.let { selectCamera(it.id) }
@@ -109,6 +110,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     fun retry() { if (_ui.value.cameras.isEmpty()) discover() else engine.retry() }
     fun setGrid(value: Boolean) = settingAction { services.settings.setGrid(value) }
     fun setQuality(value: Int) = settingAction { services.settings.setJpegQuality(value) }
+    fun setRaw(value: Boolean) = settingAction { services.settings.setRaw(value) }
     private fun settingAction(action: suspend () -> Unit) {
         viewModelScope.launch {
             try { action() } catch (error: Exception) {

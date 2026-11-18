@@ -12,17 +12,25 @@ object CameraPolicy {
 
     // Start with a modest real JPEG stream, not the sensor's maximum-resolution mode.
     // Advertised combinations still require a successful Camera2 session.
-    fun configuration(camera: CameraDescriptor): PhotoConfiguration? {
+    // A RAW stream is only paired when the lens advertises RAW and one of its reported
+    // sizes matches the JPEG aspect; an incompatible pairing is never invented.
+    fun configuration(camera: CameraDescriptor, rawEnabled: Boolean = false): PhotoConfiguration? {
         val jpegs = camera.jpegSizes.sortedWith(
             compareBy<Dimensions> { abs(it.aspect - 4.0 / 3) > 0.03 }
                 .thenBy { it.area > 12_500_000L }
                 .thenByDescending { it.area },
         )
+        val rawWanted = rawEnabled && camera.supportsRaw
         for (jpeg in jpegs) {
+            val raw = if (rawWanted) camera.rawSizes
+                .filter { abs(it.aspect - jpeg.aspect) <= 0.03 }
+                .maxByOrNull { it.area }
+            else null
+            if (rawWanted && raw == null) continue
             val candidates = camera.previewSizes.filter { abs(it.aspect - jpeg.aspect) < 0.015 }
             val preview = candidates.filter { it.width <= 1920 && it.height <= 1080 }
                 .maxByOrNull { it.area } ?: candidates.minByOrNull { it.area }
-            if (preview != null) return PhotoConfiguration(jpeg, preview)
+            if (preview != null) return PhotoConfiguration(jpeg, preview, raw)
         }
         return null
     }

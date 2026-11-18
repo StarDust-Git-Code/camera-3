@@ -107,7 +107,7 @@ fun Camera3Root(model: CameraViewModel) {
                     openPhoto = { uri ->
                         try {
                             context.startActivity(Intent(Intent.ACTION_VIEW).apply {
-                                setDataAndType(uri, "image/jpeg")
+                                setDataAndType(uri, "image/*")
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             })
                         } catch (_: ActivityNotFoundException) { notice = "No installed app can open this photo" }
@@ -148,10 +148,16 @@ private fun ColumnScope.CameraScreen(
         IconButton(onClick = model::torch, enabled = ready && ui.selected?.supportsTorch == true) {
             Icon(if (ui.runtime.torch) Icons.Default.FlashOn else Icons.Default.FlashOff, "Toggle continuous torch")
         }
-        Text("JPEG", style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.border(1.dp, Muted, RoundedCornerShape(4.dp)).padding(horizontal = 8.dp, vertical = 3.dp))
-        Text(ui.configuration?.jpeg?.let { "${String.format(Locale.US, "%.1f", it.area / 1_000_000.0)} MP" } ?: "PHOTO",
-            style = MaterialTheme.typography.labelMedium)
+        if (ui.selected?.supportsRaw == true) {
+            FilterChip(selected = ui.preferences.raw, onClick = { model.setRaw(!ui.preferences.raw) },
+                enabled = changingAllowed, label = { Text("RAW") })
+        } else {
+            Text("JPEG", style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.border(1.dp, Muted, RoundedCornerShape(4.dp)).padding(horizontal = 8.dp, vertical = 3.dp))
+        }
+        Text(ui.configuration?.jpeg?.let {
+            "${String.format(Locale.US, "%.1f", it.area / 1_000_000.0)} MP" + if (ui.preferences.raw) " · RAW" else ""
+        } ?: "PHOTO", style = MaterialTheme.typography.labelMedium)
         IconButton(onClick = settings) { Icon(Icons.Default.Settings, "Open settings") }
     }
     Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
@@ -188,7 +194,7 @@ private fun ColumnScope.CameraScreen(
     if (ui.eligible && ui.cameras.size > 1) LazyRow(
         Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        items(ui.cameras.filter { CameraPolicy.configuration(it) != null }, key = { it.id }) { camera ->
+        items(ui.cameras.filter { CameraPolicy.configuration(it, ui.preferences.raw) != null }, key = { it.id }) { camera ->
             FilterChip(selected = camera.id == ui.selectedId, onClick = { model.selectCamera(camera.id) },
                 label = { Text(camera.label) }, enabled = changingAllowed)
         }
@@ -201,7 +207,8 @@ private fun ColumnScope.CameraScreen(
             } else TextButton(onClick = {}, enabled = false) { Text(mode, style = MaterialTheme.typography.labelMedium) }
         }
     }
-    Text("This development build supports Photo only", color = Muted, style = MaterialTheme.typography.labelSmall,
+    Text(if (ui.selected?.supportsRaw == true) "Photo capture · RAW (DNG) available on this lens"
+        else "This development build supports Photo only", color = Muted, style = MaterialTheme.typography.labelSmall,
         modifier = Modifier.align(Alignment.CenterHorizontally))
     Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {

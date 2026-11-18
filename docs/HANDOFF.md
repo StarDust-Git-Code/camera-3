@@ -1,18 +1,39 @@
 # Handoff: read first when resuming
 
-Last updated: 2026-11-18. First device session verified the Photo baseline;
-two runtime fixes await the next CI build + reinstall.
+Last updated: 2026-11-18. The fix build is installed on the phone; the RAW/DNG
+pipeline is implemented and locally build-verified, awaiting CI + device checks.
 
 ## Current state
 
-- Verified source commit `9174a63` (run 44235722163) remains the published
-  build. The docs-only checkpoint plus two code fixes are local and uncommitted.
-- First device session completed on the user's connected phone: verified APK
-  installed; permission/LEVEL_3 gate, preview+grid, torch, zoom 1.0–8.0, all
-  four lens chips, capture+storage, lifecycle, settings persistence and
-  diagnostics rendering all device-verified; four real 4080×3060 JPEGs with
-  correct EXIF in `DCIM/Camera3`; persistent `camera-0.log` captured everything.
-  No crash. Evidence: TESTING execution record + `app/build/ci/device-testing/`.
+- Published CI-green source: `6212f3c` (identical app sources to `6b8b35f`).
+  The local working tree now adds the RAW pipeline + docs, uncommitted.
+- Fix build (run 44240950175, `6b8b35f`) IS installed on the phone: fresh
+  runner key forced uninstall/reinstall (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`
+  first), CAMERA re-granted via the system dialog, DataStore reset observed
+  (quality 95%, grid OFF), grid re-enabled in-app, quality left at 95% (user
+  decision: no more slider work). DCIM photos survived.
+- RAW/DNG pipeline implemented per D-016 (build-verified locally, NOT yet
+  device-verified):
+  - `CameraDescriptor.rawSizes` + `supportsRaw`; discovery reads
+    `getOutputSizes(RAW_SENSOR)` (defensive) and logs it; diagnostics show
+    "RAW output sizes".
+  - `CameraPolicy.configuration(camera, rawEnabled)` pairs the largest
+    aspect-matching (±0.03) RAW size only when capability RAW is advertised;
+    otherwise no configuration is invented. Two new tests; 11/11 pass.
+  - Engine: optional RAW_SENSOR `ImageReader` (maxImages 2), still request
+    targets JPEG+RAW surfaces, `TotalCaptureResult` + RAW `Image` paired in
+    either arrival order, capture stays CAPTURING until both outputs settle,
+    watchdog re-arms per remaining output, honest per-output messages.
+  - `DngCreator(cameraCharacteristics, result)` — constructor-bound metadata,
+    no `setResult` at API 36 (javap-verified, P-014); `setOrientation` takes
+    EXIF 1–8 (degrees→1/6/3/8 mapping at capture time).
+  - `PhotoStore.saveDng` streams `image/x-adobe-dng` into `DCIM/Camera3`.
+  - Settings gain a persisted `raw` boolean; ViewModel computes RAW-aware
+    configuration everywhere; UI shows a RAW FilterChip on supporting lenses
+    and "MP · RAW" label; gallery opens with `image/*`.
+  - P-015 (explicit return in `PhotoStore.insert`) recorded.
+- Local verification: `:core:model:test` 11 tests 0 failures +
+  `:core:camera|media|settings|app` compile BUILD SUCCESSFUL (2026-11-18).
 - Device identity: Android 16 / API 36 with spoofed Samsung props (a35x board,
   SM-S711B model string, mixed fingerprint) consistent with the user's Magisk/
   modified-library report. Do not copy the device serial into docs/exports.
@@ -20,35 +41,25 @@ two runtime fixes await the next CI build + reinstall.
   baseline JPEGs 4080×3060 / 1920×1440 / 3264×2448 / 3408×2556; preview
   1440×1080; zoom 1.0–8.0 rear / 1.0–4.0 front; extensions only BEAUTY(1) +
   BOKEH(2); NIGHT(4) not advertised; no physical sub-IDs (CAMERA-CAPABILITIES).
-- Fixes applied locally, compile-verified (`:core:camera:compileDebugKotlin`
-  BUILD SUCCESSFUL): P-011 idempotent session teardown in `CameraEngine.close()`
-  (duplicate ISE close logs), P-012 full API-36 capability-name map in
-  `CameraDiscovery` (5=READ_SENSOR_SETTINGS, 19=STREAM_USE_CASE, verified via
-  javap on android.jar). P-001 closed; P-013 (corrupt bundletool cache) resolved.
-- Pushed as `6b8b35f`; CI run 44240950175 passed (watched). Fix-build APK
-  verified locally: `app/build/ci/44240950175/apk/app-debug.apk`, SHA256
-  `4f9d9661…5840e30e44`, v2 signature/package checks passed; reports downloaded.
-  Device install is pending — the phone was disconnected at the attempt.
-- ROADMAP M3 now records the device facts (BOKEH(2)/BEAUTY(1) exposed,
-  NIGHT(4) not advertised).
 
 ## Implemented and device-verified (baseline Photo only)
 
 - Install/permission/eligibility gate; preview fitted with grid and mirroring;
   JPEG capture to MediaStore with EXIF orientation/model/ISO; torch; zoom;
   four-lens close-before-reopen switching; background/resume; settings
-  persistence (quality 100%, grid ON); diagnostics screens with real data.
+  persistence; diagnostics screens with real data.
 
 ## Constraints and limits
 
 - Kotlin/Compose/public Camera2/MVVM/Coroutines; `minSdk = 35`; LEVEL_3 device
   gate (passed honestly on-device). Reported flags remain claims (P-004);
-  advanced pipelines are not implemented; disabled tabs stay disabled.
+  the RAW pipeline is implemented but device-unverified; disabled tabs stay
+  disabled.
 - Night tab: Camera2 NIGHT extension (ID 4) is NOT advertised by this HAL —
   keep disabled with that reason unless another real pipeline is built.
-- AF/AE lock, tap metering, RAW/DNG, extension sessions, video/audio: not
-  implemented. Logs screen/share intent/full-caps detail/quality-isolation
-  capture still to exercise on-device.
+- AF/AE lock, tap metering, extension sessions, video/audio: not implemented.
+  RAW device checks + deferred UI checks (Logs/share, full-caps detail, clean
+  close logs, capability labels) ride with the next device session.
 - Do not modify root/modules/firmware/libraries or set up release signing unasked.
 - P-010 maintenance follow-ups (DataExtractionRules, action runtime/exec bit)
   remain open; warnings not suppressed.
@@ -63,18 +74,21 @@ two runtime fixes await the next CI build + reinstall.
 - `.github/workflows/android.yml`: `main` pushes, PRs, manual dispatch.
   Commands: `:core:model:test testDebugUnitTest :app:lintDebug :app:assembleDebug`.
 - Portable `gh`: `C:\Users\irsha\AppData\Local\Temp\opencode\camera3-gh-v2.105.0\bin\gh.exe`;
-  auth stays in process memory only. Remote artifacts from run 44235722163
-  expire 2026-12-02. Fresh CI debug keys may require uninstall/reinstall.
+  auth stays in process memory only. Fresh CI debug keys may require
+  uninstall/reinstall (settings reset expected; DCIM photos survive).
 - Local SDK path/config must stay ignored; no secrets/test media in Git.
 
 ## Exact next action
 
-1. When the user reconnects the phone, verify it in `adb devices -l` and install
-   `app/build/ci/44240950175/apk/app-debug.apk` (`install -r`; if the runner's
-   debug key changed, uninstall/reinstall and note the settings reset).
-2. With the phone idle and Camera3 foreground-verified, finish deferred checks:
-   Logs screen render + share/export intent, "View full capabilities" detail,
-   one fresh quality-100 capture, clean close logs (P-011), capability labels
-   (P-012). Record results in TESTING/PROGRESS and update the handoff.
-3. Then plan M3 (RAW/DNG, manual controls, BOKEH extension path) against the
-   observed per-lens capabilities, revalidating key ranges per lens first.
+1. Commit source + docs together, push, watch CI (same local compile already
+   passed; `:core:model:test testDebugUnitTest :app:lintDebug :app:assembleDebug`).
+2. Install the new APK (`install -r`; uninstall/reinstall if the runner key
+   changed — settings reset expected). Verify foreground before any `input tap`.
+3. Device-verify RAW per D-016: RAW chip visibility per lens (all four?),
+   toggle→close/reopen→3-stream session, session-probe outcome, capture saves
+   JPEG + DNG pair, DNG opens/rotates correctly, failure path if the combo is
+   unsupported. Record in TESTING/PROGRESS/CAMERA-CAPABILITIES (observed
+   rawSizes), update P-011/P-012 re-verification and deferred UI checks.
+4. Then implement Video (M4): MediaRecorder surface pairing, record/stop state
+   machine, orientation hint, silent mode without mic grant, session
+   reconfiguration.
