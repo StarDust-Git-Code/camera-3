@@ -213,8 +213,11 @@ first. All generated downloads are ignored by Git.
 - `apksigner` verified v2 signing. `aapt2` verified Camera3 /
   `dev.camera3.app` / `0.1.0-dev` / minSdk35 / targetSdk36.
 - Reports show 15 model + 6 app tests, no failures/ignored; lint 0 errors/17 warnings.
-- Not installed or device-tested by instruction. This artifact does not prove
-  that the phone exposes/accepts the required configuration or records 60 fps.
+- Installed on the connected phone (`RFCX20PKXWB`, SM-S711B/a35x) after uninstalling
+  the prior runner-signed build; DataStore reset as expected. Actual capability,
+  session acceptance, cadence and saved-file evidence still need your physical run.
+  This artifact does not prove the phone exposes/accepts the required configuration
+  or records 60 fps.
 
 ### Maximum-resolution/smooth-zoom build (verified; not installed)
 

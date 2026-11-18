@@ -28,7 +28,7 @@ also CI build-verified; physical cadence evidence is pending.
 | Extensions/manual | Not implemented | Disabled or diagnostics-only, no fake pipeline |
 | GitHub Actions | 1080p60 tranche passed | `c78ae3a`, run 44303969928 success; 15 model + 6 app tests, lint and both artifact uploads passed |
 | App builds/tests/device validation | Current tranche CI build-verified | CI: 21 tests, no failures/ignored; lint 0 errors/17 warnings. No D-021 phone test |
-| APK/delivery | D-021 CI artifact verified; correction remains installed | New APK 62,284,765 bytes, SHA256 `A8EC60F2…4FF0DC`, v2/package/SDK verified; not installed by instruction |
+| APK/delivery | D-021 CI artifact verified; now installed | New APK 62,284,765 bytes, SHA256 `A8EC60F2…4FF0DC`, v2/package/SDK verified; installed on RFCX20PKXWB; DataStore reset on first launch |
 
 ## Completed record
 
